@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         Grepolis Auto-Purificação
 // @namespace    local.grepolis.tools
-// @version      1.4.0
+// @version      1.4.1
+// @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-auto-purification.user.js
+// @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-auto-purification.user.js
 // @description  Lança Purificação automaticamente quando Narcisismo é aplicado numa cidade própria.
 // @match        https://*.grepolis.com/game/*
 // @grant        unsafeWindow
@@ -13,7 +15,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.4.0';
+  const VERSION = '1.4.1';
   const PREFIX = '[AutoPurification]';
   const STORAGE_KEY = 'grepolis_auto_purification_state_v5';
   const LOG_KEY = 'grepolis_auto_purification_logs_v1';
