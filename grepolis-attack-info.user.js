@@ -3,7 +3,7 @@
 // @namespace    https://grepolis.com/
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
 // @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
-// @version      1.0.3
+// @version      1.0.4
 // @description  Mostra duração, hora de envio e deteção cega de navios colonizadores.
 // @author       Codex
 // @match        https://*.grepolis.com/game/*
@@ -16,7 +16,7 @@
 (function grepolisAttackInfoFactory() {
   'use strict';
 
-  const VERSION = '1.0.3';
+  const VERSION = '1.0.4';
   const SENT_STORAGE_KEY = 'gai.sent.v1';
   const OVERLAY_ID = 'gai-overlay-layer';
   const MAX_SENT_RECORDS = 250;
@@ -699,11 +699,11 @@
   function overlayRect(row) {
     const rect = row.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
-    const left = rect.left + rect.width * SLOT_LEFT_RATIO;
-    const right = rect.right - rect.width * SLOT_RIGHT_RATIO;
+    const left = rect.width * SLOT_LEFT_RATIO;
+    const right = rect.width * (1 - SLOT_RIGHT_RATIO);
     return {
       left,
-      top: rect.top + Math.max(0, (rect.height - SLOT_HEIGHT_PX) / 2),
+      top: Math.max(0, (rect.height - SLOT_HEIGHT_PX) / 2),
       width: Math.max(80, right - left),
       height: Math.min(SLOT_HEIGHT_PX, rect.height)
     };
@@ -722,14 +722,15 @@
     const rect = overlayRect(row);
     if (!rect) return null;
     const key = movement.id || `${movement.originTownId}:${movement.targetTownId}:${movement.arrivalAt}`;
-    let node = [...layer.querySelectorAll('.gai-overlay')]
+    let node = [...document.querySelectorAll('.gai-overlay')]
       .find((candidate) => candidate.dataset.gaiKey === key);
     if (!node) {
       node = document.createElement('div');
       node.dataset.gaiKey = key;
       node.className = 'gai-overlay';
-      layer.appendChild(node);
     }
+    if (node.parentElement !== row) row.appendChild(node);
+    node.style.position = 'absolute';
     node.style.left = `${rect.left}px`;
     node.style.top = `${rect.top}px`;
     node.style.width = `${rect.width}px`;
@@ -753,10 +754,10 @@
     const style = document.createElement('style');
     style.textContent = `
       #${OVERLAY_ID}{position:fixed;inset:0;pointer-events:none;z-index:2147483647;overflow:visible}
-      #${OVERLAY_ID} .gai-overlay{position:fixed;display:flex;align-items:center;gap:3px;box-sizing:border-box;overflow:hidden;white-space:nowrap;pointer-events:none;color:#5b2d08;font:700 10px/16px Arial,sans-serif;text-shadow:0 1px #fff1b3}
-      #${OVERLAY_ID} .gai-overlay>span{flex:0 0 auto}
-      #${OVERLAY_ID} .gai-nc{color:#c40000;font-weight:700}
-      #${OVERLAY_ID} .gai-nc-unknown{color:#8b2a00}
+      .gai-overlay{position:absolute;display:flex;align-items:center;gap:3px;box-sizing:border-box;overflow:hidden;white-space:nowrap;pointer-events:none;color:#5b2d08;font:700 10px/16px Arial,sans-serif;text-shadow:0 1px #fff1b3}
+      .gai-overlay>span{flex:0 0 auto}
+      .gai-nc{color:#c40000;font-weight:700}
+      .gai-nc-unknown{color:#8b2a00}
     `;
     document.head.appendChild(style);
     document.body.appendChild(layer);
@@ -818,7 +819,7 @@
           if (key) activeKeys.add(key);
         }
       }
-      [...layer.querySelectorAll('.gai-overlay')].forEach((node) => {
+      [...document.querySelectorAll('.gai-overlay')].forEach((node) => {
         if (!activeKeys.has(node.dataset.gaiKey)) node.remove();
       });
     } finally {

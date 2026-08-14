@@ -221,6 +221,8 @@ test('overlay usa camada fixa e não executa ações do jogo', () => {
   assert.match(source, /Array\.isArray\(value\.models\)/);
   assert.match(source, /filter\(rowIsVisible\)/);
   assert.match(source, /getComputedStyle\(row\)/);
+  assert.match(source, /\.gai-overlay\{position:absolute/);
+  assert.match(source, /row\.appendChild\(node\)/);
   assert.doesNotMatch(source, /send_units/);
   assert.doesNotMatch(source, /cancel_command/);
   assert.doesNotMatch(source, /\.click\(/);
