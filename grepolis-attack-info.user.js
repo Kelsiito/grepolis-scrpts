@@ -3,7 +3,7 @@
 // @namespace    https://grepolis.com/
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
 // @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
-// @version      1.0.6
+// @version      1.0.7
 // @description  Mostra duração, hora de envio e deteção cega de navios colonizadores.
 // @author       Codex
 // @match        https://*.grepolis.com/game/*
@@ -16,8 +16,9 @@
 (function grepolisAttackInfoFactory() {
   'use strict';
 
-  const VERSION = '1.0.6';
+  const VERSION = '1.0.7';
   const SENT_STORAGE_KEY = 'gai.sent.v1';
+  const INCOMING_STORAGE_KEY = 'gai.incoming.v1';
   const OVERLAY_ID = 'gai-overlay-layer';
   const MAX_SENT_RECORDS = 250;
   const SENT_RECORD_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
@@ -258,6 +259,69 @@
       .sort((left, right) => right.sentAt - left.sentAt)[0] || null;
   }
 
+  function normalizeIncomingRecord(record) {
+    return {
+      id: String(record?.id || ''),
+      type: canonicalType(record?.type || 'attack'),
+      originTownId: String(record?.originTownId || record?.origin_town_id || ''),
+      targetTownId: String(record?.targetTownId || record?.target_town_id || ''),
+      sentAt: timestampMs(record?.sentAt || record?.started_at),
+      arrivalAt: timestampMs(record?.arrivalAt || record?.arrival_at),
+      observedAt: timestampMs(record?.observedAt || record?.observed_at),
+      capturedAt: timestampMs(record?.capturedAt || record?.captured_at)
+    };
+  }
+
+  function pruneIncomingRecords(records, now = Date.now()) {
+    return records
+      .map(normalizeIncomingRecord)
+      .filter((record) => {
+        const capturedAt = record.capturedAt || record.observedAt;
+        return capturedAt && now - capturedAt <= SENT_RECORD_TTL_MS;
+      })
+      .slice(-MAX_SENT_RECORDS);
+  }
+
+  function incomingRecordMatches(record, movement) {
+    if (record.type !== 'attack' || movement.type !== 'attack') return false;
+    if (record.id && movement.id && record.id === movement.id) return true;
+    if (!record.originTownId || !movement.originTownId
+      || !record.targetTownId || !movement.targetTownId
+      || record.originTownId !== movement.originTownId
+      || record.targetTownId !== movement.targetTownId) return false;
+    return !record.arrivalAt || !movement.arrivalAt
+      || Math.abs(record.arrivalAt - movement.arrivalAt) <= 2_000;
+  }
+
+  function rememberIncomingRecord(records, movement, now = Date.now()) {
+    const next = pruneIncomingRecords(records, now);
+    const index = next.findIndex((record) => incomingRecordMatches(record, movement));
+    const previous = index >= 0 ? next[index] : null;
+    const normalized = normalizeIncomingRecord({
+      id: movement?.id || previous?.id,
+      type: movement?.type || 'attack',
+      originTownId: movement?.originTownId || previous?.originTownId,
+      targetTownId: movement?.targetTownId || previous?.targetTownId,
+      sentAt: movement?.startedAt || previous?.sentAt,
+      arrivalAt: movement?.arrivalAt || previous?.arrivalAt,
+      observedAt: previous?.observedAt || now,
+      capturedAt: previous?.capturedAt || now
+    });
+    if (!normalized.originTownId && !normalized.targetTownId && !normalized.id) return next;
+    const unchanged = previous && [
+      'id', 'type', 'originTownId', 'targetTownId', 'sentAt', 'arrivalAt', 'observedAt', 'capturedAt'
+    ].every((key) => previous[key] === normalized[key]);
+    if (unchanged) return next;
+    const withoutPrevious = index >= 0 ? next.filter((_, itemIndex) => itemIndex !== index) : next;
+    return [...withoutPrevious, normalized].slice(-MAX_SENT_RECORDS);
+  }
+
+  function findIncomingRecord(records, movement, now = Date.now()) {
+    return pruneIncomingRecords(records, now)
+      .filter((record) => incomingRecordMatches(record, movement))
+      .sort((left, right) => right.observedAt - left.observedAt)[0] || null;
+  }
+
   function extractCoordinates(source, prefix = '') {
     const raw = rawObject(source);
     const prefixText = prefix ? `${prefix}_` : '';
@@ -354,11 +418,13 @@
     return { isNc: false, confidence: 'no-match', deltaMs, candidates: 0 };
   }
 
-  function buildDisplayModel(movement, sentAt, nc) {
+  function buildDisplayModel(movement, sentAt, nc, { observedAt = 0 } = {}) {
     const durationMs = durationBetween(sentAt, movement?.arrivalAt);
     return {
       durationText: formatDuration(durationMs === null ? null : durationMs / 1_000),
       sentText: formatClock(sentAt),
+      observedText: formatClock(observedAt),
+      sentSource: sentAt ? 'server-or-local' : observedAt ? 'observed' : 'unavailable',
       ncText: nc?.isNc ? 'NC Confirmado' : nc?.confidence === 'impossible' ? 'NC: impossível confirmar' : '',
       ncConfirmed: Boolean(nc?.isNc),
       ncConfidence: nc?.confidence || 'impossible'
@@ -588,6 +654,11 @@
     rememberSentRecord,
     sentRecordMatches,
     findSentRecord,
+    normalizeIncomingRecord,
+    pruneIncomingRecords,
+    incomingRecordMatches,
+    rememberIncomingRecord,
+    findIncomingRecord,
     extractCoordinates,
     rowTownData,
     townDistance,
@@ -626,6 +697,22 @@
     try {
       if (typeof GM_setValue === 'function') GM_setValue(SENT_STORAGE_KEY, records);
       else localStorage.setItem(SENT_STORAGE_KEY, JSON.stringify(records));
+    } catch { /* local persistence is optional */ }
+  }
+
+  function loadIncomingRecords() {
+    try {
+      const value = typeof GM_getValue === 'function'
+        ? GM_getValue(INCOMING_STORAGE_KEY, [])
+        : JSON.parse(localStorage.getItem(INCOMING_STORAGE_KEY) || '[]');
+      return Array.isArray(value) ? pruneIncomingRecords(value, serverNowMs()) : [];
+    } catch { return []; }
+  }
+
+  function saveIncomingRecords(records) {
+    try {
+      if (typeof GM_setValue === 'function') GM_setValue(INCOMING_STORAGE_KEY, records);
+      else localStorage.setItem(INCOMING_STORAGE_KEY, JSON.stringify(records));
     } catch { /* local persistence is optional */ }
   }
 
@@ -817,10 +904,13 @@
     node.style.top = `${rect.top}px`;
     node.style.width = `${rect.width}px`;
     node.style.height = `${rect.height}px`;
-    node.title = `Duração total: ${display.durationText} | Enviado: ${display.sentText}`;
+    const timeLabel = display.sentSource === 'observed'
+      ? `Visto ${display.observedText}`
+      : `Enviado ${display.sentText}`;
+    node.title = `Duração total: ${display.durationText} | ${timeLabel}`;
     node.innerHTML = `
       <span class="gai-line">Duração ${escapeHtml(display.durationText)}</span>
-      <span class="gai-line">Enviado ${escapeHtml(display.sentText)}${display.ncText ? ` <span class="gai-nc ${display.ncConfirmed ? '' : 'gai-nc-unknown'}">· ${escapeHtml(display.ncText)}</span>` : ''}</span>
+      <span class="gai-line">${escapeHtml(timeLabel)}${display.ncText ? ` <span class="gai-nc ${display.ncConfirmed ? '' : 'gai-nc-unknown'}">· ${escapeHtml(display.ncText)}</span>` : ''}</span>
     `;
     return key;
   }
@@ -888,10 +978,19 @@
     try {
       const { now, stored, movements } = readCommands();
       const ownIds = ownTownIds(page);
+      const ownNames = ownTownNames(page);
       const rows = readRows();
       const incoming = movements
         .map((movement) => movementWithRowEvidence(movement, findRow(rows, movement)))
-        .filter((movement) => isIncomingAttack(movement, ownIds, now, ownTownNames(page)));
+        .filter((movement) => isIncomingAttack(movement, ownIds, now, ownNames));
+      const previousIncoming = loadIncomingRecords();
+      let incomingStored = previousIncoming;
+      incoming.forEach((movement) => {
+        incomingStored = rememberIncomingRecord(incomingStored, movement, now);
+      });
+      if (JSON.stringify(previousIncoming) !== JSON.stringify(incomingStored)) {
+        saveIncomingRecords(incomingStored);
+      }
       const layer = createLayer();
       const townMap = ownTownCoordinates(page);
       const missingCoordinates = incoming.some((movement) => !movement.raw || !movementCoordinates(movement, townMap).origin || !movementCoordinates(movement, townMap).target);
@@ -900,11 +999,18 @@
       }
       const activeKeys = new Set();
       for (const movement of incoming) {
-        const record = movement.startedAt ? null : findSentRecord(stored, movement, now);
-        const sentAt = movement.startedAt || record?.sentAt || 0;
+        const incomingRecord = findIncomingRecord(incomingStored, movement, now);
+        const isOwnOrigin = ownIds.has(String(movement.originTownId))
+          || ownNames.has(normalizeTownName(movement.origin));
+        const ownRecord = movement.startedAt || !isOwnOrigin
+          ? null
+          : findSentRecord(stored, movement, now);
+        const sentAt = movement.startedAt || incomingRecord?.sentAt || ownRecord?.sentAt || 0;
         const row = findRow(rows, movement);
         const nc = classifyMovement(movement, sentAt, townMap, row);
-        const display = buildDisplayModel(movement, sentAt, nc);
+        const display = buildDisplayModel(movement, sentAt, nc, {
+          observedAt: incomingRecord?.observedAt || 0
+        });
         if (row) {
           const key = renderOverlay(layer, row, movement, display);
           if (key) activeKeys.add(key);

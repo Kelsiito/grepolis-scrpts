@@ -140,6 +140,54 @@ test('usa registo guardado quando movimento próprio não expõe started_at', ()
   assert.equal(Core.durationBetween(match.sentAt, movement.arrivalAt), 1_200_000);
 });
 
+test('guarda a primeira hora em que um ataque inimigo é identificado', () => {
+  const movement = Core.normalizeMovement({
+    command_id: 'enemy-1',
+    type: 'attack',
+    origin_town_id: '30',
+    target_town_id: '20',
+    arrival_at_ms: BASE + 1_200_000
+  });
+  const records = Core.rememberIncomingRecord([], movement, BASE);
+  const stored = Core.findIncomingRecord(records, movement, BASE + 1_000);
+
+  assert.equal(stored.observedAt, BASE);
+  assert.equal(stored.sentAt, 0);
+});
+
+test('mantém a hora de envio inimiga quando o servidor a fornece depois', () => {
+  const first = Core.normalizeMovement({
+    command_id: 'enemy-2',
+    type: 'attack',
+    origin_town_id: '30',
+    target_town_id: '20',
+    arrival_at_ms: BASE + 1_200_000
+  });
+  const second = Core.normalizeMovement({
+    ...first.raw,
+    started_at_ms: BASE - 600_000
+  });
+  const records = Core.rememberIncomingRecord([], first, BASE);
+  const updated = Core.rememberIncomingRecord(records, second, BASE + 1_000);
+  const stored = Core.findIncomingRecord(updated, second, BASE + 1_000);
+
+  assert.equal(stored.observedAt, BASE);
+  assert.equal(stored.sentAt, BASE - 600_000);
+});
+
+test('mostra Visto quando só existe a hora local de identificação', () => {
+  const movement = Core.normalizeMovement({
+    type: 'attack',
+    arrival_at_ms: BASE + 1_200_000
+  });
+  const display = Core.buildDisplayModel(movement, 0, { confidence: 'impossible' }, {
+    observedAt: BASE
+  });
+
+  assert.equal(display.sentSource, 'observed');
+  assert.notEqual(display.observedText, 'indisponível');
+});
+
 test('deteção cega confirma NC por duração sem units', () => {
   const expected = Core.calculateNcDurations({
     distance: 10,

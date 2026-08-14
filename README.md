@@ -114,11 +114,12 @@ armamento, limites e validações próprios.
 Para mostrar informação temporal nos comandos, instalar também o conteúdo de
 `grepolis-attack-info.user.js`. Este script é só leitura: não envia nem cancela
 comandos e aceita ataques próprios dirigidos a cidades próprias para teste. Guarda
-localmente a hora dos envios próprios; nos ataques recebidos usa `started_at` do
-servidor quando existe e calcula os perfis NC pela distância entre a cidade
-atacante e o alvo, incluindo velocidade do mundo, unidade mais lenta, Cartografia,
-Farol, Sereias, Atalanta e Set Sail. Se o servidor não fornecer a hora de envio,
-mostra `NC: impossível confirmar` em vez de inventar uma confirmação.
+localmente a hora dos envios próprios e a primeira hora em que cada ataque recebido
+é identificado. Nos ataques recebidos usa `started_at` do servidor quando existe e
+calcula os perfis NC pela distância entre a cidade atacante e o alvo, incluindo
+velocidade do mundo, unidade mais lenta, Cartografia, Farol, Sereias, Atalanta e
+Set Sail. Sem `started_at`, mostra `Visto às ...` e `NC: impossível confirmar`, em
+vez de inventar a hora de envio.
 
 O botão `GA` aparece no lado direito da página. O modo de simulação está ativo
 por defeito.
