@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Grepolis Dodge Silencioso PT
 // @namespace    https://grepolis.com/
-// @version      1.3.4
+// @version      1.3.5
 // @description  Dodge, snipe de NC e milícia automáticos, sem interface no jogo.
 // @author       unknown
 // @match        https://*.grepolis.com/game/*
@@ -9,12 +9,14 @@
 // @grant        GM_setValue
 // @grant        unsafeWindow
 // @run-at       document-idle
+// @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-dodge.user.js
+// @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-dodge.user.js
 // ==/UserScript==
 
 (function grepolisDodgeFactory() {
   'use strict';
 
-  const VERSION = '1.3.4';
+  const VERSION = '1.3.5';
   const CONFIG = Object.freeze({
     enabled: true,
     returnOffsetMs: 1_000,
