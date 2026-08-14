@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         Grepolis — Colagem automática de comandos PT
 // @namespace    https://grepolis.com/
-// @version      2.5.3
+// @version      2.5.4
 // @description  Envia comandos já guardados no Planeador nativo, sem abrir janelas de ataque ou apoio.
 // @match        https://*.grepolis.com/game/*
+// @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-command-paster.user.js
+// @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-command-paster.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        unsafeWindow
@@ -13,7 +15,7 @@
 (function grepolisCommandPasterFactory() {
   'use strict';
 
-  const VERSION = '2.5.3';
+  const VERSION = '2.5.4';
   const TERMINAL_STATES = new Set(['confirmed', 'cancelled', 'failed', 'expired']);
   const SUPPORTED_TYPES = new Set(['attack', 'support', 'revolt']);
   const UNIT_KEY = /^[a-z][a-z0-9_]*$/;
