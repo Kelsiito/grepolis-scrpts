@@ -3,7 +3,7 @@
 // @namespace    https://grepolis.com/
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
 // @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
-// @version      1.0.5
+// @version      1.0.6
 // @description  Mostra duração, hora de envio e deteção cega de navios colonizadores.
 // @author       Codex
 // @match        https://*.grepolis.com/game/*
@@ -16,7 +16,7 @@
 (function grepolisAttackInfoFactory() {
   'use strict';
 
-  const VERSION = '1.0.5';
+  const VERSION = '1.0.6';
   const SENT_STORAGE_KEY = 'gai.sent.v1';
   const OVERLAY_ID = 'gai-overlay-layer';
   const MAX_SENT_RECORDS = 250;
@@ -370,7 +370,9 @@
     const type = canonicalType(command?.sending_type || command?.type || params.type);
     if (type !== 'attack') return null;
     const raw = { ...command, ...params };
-    const targetTownId = String(read(raw, ['target_town_id', 'targetTownId', 'target_id', 'id'], ''));
+    const targetTownId = String(read(raw, [
+      'target_town_id', 'targetTownId', 'destination_town_id', 'target_id'
+    ], '') || read(params, ['id'], ''));
     const originTownId = String(read(raw, [
       'origin_town_id', 'originTownId', 'town_id', 'source_town_id'
     ], page?.Game?.town_id ?? page?.Game?.townId ?? ''));
@@ -384,6 +386,14 @@
       explicitNc: hasColonizeShip(raw),
       raw
     };
+  }
+
+  function eventTimestamp(event, command, fallback) {
+    const raw = { ...(event || {}), ...(command || {}), ...(command?.params || {}) };
+    return timestampMs(read(raw, [
+      'started_at_ms', 'started_at', 'start_at', 'sent_at_ms', 'sent_at',
+      'send_at_ms', 'send_at', 'timestamp_ms', 'timestamp', 'server_time', 'created_at'
+    ])) || fallback;
   }
 
   function normalizeTownName(value) {
@@ -523,6 +533,44 @@
     return result;
   }
 
+  function decodeHashObject(href) {
+    const encoded = String(href || '').replace(/^#/, '').replace(/-/g, '+').replace(/_/g, '/');
+    if (!encoded) return null;
+    try {
+      const padded = encoded + '='.repeat((4 - encoded.length % 4) % 4);
+      const binary = atob(padded);
+      const bytes = [...binary].map((character) => `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`);
+      return JSON.parse(decodeURIComponent(bytes.join('')));
+    } catch {
+      try { return JSON.parse(atob(encoded)); } catch { return null; }
+    }
+  }
+
+  function rowTownData(row) {
+    if (!row?.querySelectorAll) return null;
+    const towns = [...row.querySelectorAll('a.gp_town_link')].map((link) => {
+      const data = decodeHashObject(link.getAttribute('href')) || {};
+      return {
+        id: String(data.id || ''),
+        name: String(data.name || plainText(link.textContent)),
+        x: number(data.ix, Number.NaN),
+        y: number(data.iy, Number.NaN)
+      };
+    }).filter((town) => town.id || town.name);
+    if (towns.length < 2) return null;
+    const [origin, target] = towns;
+    return {
+      originTownId: origin.id,
+      targetTownId: target.id,
+      origin: origin.name,
+      target: target.name,
+      originCoordinates: Number.isFinite(origin.x) && Number.isFinite(origin.y)
+        ? { x: origin.x, y: origin.y } : null,
+      targetCoordinates: Number.isFinite(target.x) && Number.isFinite(target.y)
+        ? { x: target.x, y: target.y } : null
+    };
+  }
+
   const Core = {
     VERSION,
     NC_TOLERANCE_MS,
@@ -541,12 +589,14 @@
     sentRecordMatches,
     findSentRecord,
     extractCoordinates,
+    rowTownData,
     townDistance,
     buildSpeedProfiles,
     calculateNcDurations,
     classifyNcAttack,
     buildDisplayModel,
     eventToSentRecord,
+    eventTimestamp,
     isIncomingAttack,
     parseWorldTowns
   };
@@ -581,7 +631,13 @@
 
   function serverNowMs() {
     try {
-      const result = calibratedServerTime(page.Timestamp?.server?.(), performance.now(), serverClockState);
+      const rawServer = typeof page.Timestamp?.now === 'function'
+        ? page.Timestamp.now()
+        : typeof page.Timestamp?.server === 'function'
+          ? page.Timestamp.server()
+          : page.Game?.server_time ?? page.Game?.serverTime;
+      const perfNow = page.performance?.now?.() ?? performance.now();
+      const result = calibratedServerTime(rawServer, perfNow, serverClockState);
       serverClockState = result.state;
       if (result.now) return result.now;
     } catch { /* browser clock fallback */ }
@@ -662,8 +718,27 @@
   }
 
   function movementWithRowEvidence(movement, row) {
-    if (movement?.explicitNc || !rowHasColonizeShip(row)) return movement;
-    return { ...movement, explicitNc: 'dom:colonize_ship' };
+    const details = rowTownData(row);
+    const raw = { ...(movement?.raw || {}) };
+    if (details?.originCoordinates && !extractCoordinates(raw, 'origin')) {
+      raw.origin_island_x = details.originCoordinates.x;
+      raw.origin_island_y = details.originCoordinates.y;
+    }
+    if (details?.targetCoordinates && !extractCoordinates(raw, 'target')) {
+      raw.target_island_x = details.targetCoordinates.x;
+      raw.target_island_y = details.targetCoordinates.y;
+    }
+    const enriched = {
+      ...movement,
+      id: movement?.id || rowId(row),
+      originTownId: movement?.originTownId || details?.originTownId || '',
+      targetTownId: movement?.targetTownId || details?.targetTownId || '',
+      origin: movement?.origin || details?.origin || '',
+      target: movement?.target || details?.target || '',
+      raw
+    };
+    if (movement?.explicitNc || !rowHasColonizeShip(row)) return enriched;
+    return { ...enriched, explicitNc: 'dom:colonize_ship' };
   }
 
   function rowIsVisible(row) {
@@ -779,19 +854,29 @@
     return worldTownsPromise;
   }
 
-  function movementCoordinates(movement, townMap) {
+  function movementCoordinates(movement, townMap, row) {
     const originRaw = movement.raw;
-    const origin = extractCoordinates(originRaw, 'origin') || townMap.get(movement.originTownId);
-    const target = extractCoordinates(originRaw, 'target') || townMap.get(movement.targetTownId);
+    const details = rowTownData(row);
+    const origin = extractCoordinates(originRaw, 'origin')
+      || details?.originCoordinates
+      || townMap.get(movement.originTownId);
+    const target = extractCoordinates(originRaw, 'target')
+      || details?.targetCoordinates
+      || townMap.get(movement.targetTownId);
     return { origin, target };
   }
 
-  function classifyMovement(movement, sentAt, townMap) {
+  function classifyMovement(movement, sentAt, townMap, row) {
     if (movement.explicitNc) return classifyNcAttack(movement, { sentAt });
-    const coordinates = movementCoordinates(movement, townMap);
+    const coordinates = movementCoordinates(movement, townMap, row);
     const distance = townDistance(coordinates.origin, coordinates.target);
     if (distance === null || !sentAt) return classifyNcAttack(movement, { sentAt });
-    const unitSpeed = number(page.Game?.unit_speed ?? page.Game?.unitSpeed, 1);
+    const unitSpeed = number(
+      page.Game?.game_speed
+      ?? page.Game?.unit_speed
+      ?? page.Game?.unitSpeed,
+      1
+    );
     const colonySpeed = number(page.GameData?.units?.colonize_ship?.speed, 3);
     const expectedDurations = calculateNcDurations({ distance, unitSpeed, colonySpeed });
     return classifyNcAttack(movement, { sentAt, expectedDurations });
@@ -817,9 +902,9 @@
       for (const movement of incoming) {
         const record = movement.startedAt ? null : findSentRecord(stored, movement, now);
         const sentAt = movement.startedAt || record?.sentAt || 0;
-        const nc = classifyMovement(movement, sentAt, townMap);
-        const display = buildDisplayModel(movement, sentAt, nc);
         const row = findRow(rows, movement);
+        const nc = classifyMovement(movement, sentAt, townMap, row);
+        const display = buildDisplayModel(movement, sentAt, nc);
         if (row) {
           const key = renderOverlay(layer, row, movement, display);
           if (key) activeKeys.add(key);
@@ -844,14 +929,19 @@
   function subscribeToSendEvents() {
     if (subscribed) return true;
     const observer = page.$?.Observer;
-    const event = page.GameEvents?.command?.send_unit;
-    if (typeof observer !== 'function' || !event) return false;
-    observer(event).subscribe(`gai:${ownerId}`, (_event, command) => {
-      const record = eventToSentRecord(command, serverNowMs(), page);
+    const sendEvent = page.GameEvents?.command?.send_unit;
+    const incomingAttackEvent = page.GameEvents?.attack?.incoming;
+    if (typeof observer !== 'function' || (!sendEvent && !incomingAttackEvent)) return false;
+    const rememberEvent = (event, command) => {
+      const fallback = serverNowMs();
+      const payload = command && typeof command === 'object' ? command : event;
+      const record = eventToSentRecord(payload, eventTimestamp(event, command, fallback), page);
       if (!record) return;
       saveSentRecords(rememberSentRecord(loadSentRecords(), record, record.sentAt));
       scheduleScan();
-    });
+    };
+    if (sendEvent) observer(sendEvent).subscribe(`gai:${ownerId}:send`, rememberEvent);
+    if (incomingAttackEvent) observer(incomingAttackEvent).subscribe(`gai:${ownerId}:incoming`, rememberEvent);
     subscribed = true;
     return true;
   }

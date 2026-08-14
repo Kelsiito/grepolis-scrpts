@@ -98,6 +98,28 @@ test('captura hora própria pelo evento sem confundir target id com command id',
   });
 });
 
+test('usa timestamp do evento antes do relógio local', () => {
+  assert.equal(Core.eventTimestamp({}, { started_at: BASE + 42_000 }, BASE), BASE + 42_000);
+  assert.equal(Core.eventTimestamp({}, {}, BASE), BASE);
+});
+
+test('extrai coordenadas da cidade atacante e do alvo na linha visível', () => {
+  const href = (data) => `#${Buffer.from(JSON.stringify(data)).toString('base64')}`;
+  const links = [
+    { getAttribute: () => href({ id: 101, ix: 478, iy: 515, name: 'Farois' }), textContent: 'Farois' },
+    { getAttribute: () => href({ id: 202, ix: 480, iy: 516, name: 'Driftmark' }), textContent: 'Driftmark' }
+  ];
+  const row = { querySelectorAll: () => links };
+  assert.deepEqual(Core.rowTownData(row), {
+    originTownId: '101',
+    targetTownId: '202',
+    origin: 'Farois',
+    target: 'Driftmark',
+    originCoordinates: { x: 478, y: 515 },
+    targetCoordinates: { x: 480, y: 516 }
+  });
+});
+
 test('usa registo guardado quando movimento próprio não expõe started_at', () => {
   const records = Core.rememberSentRecord([], {
     type: 'attack',
@@ -165,6 +187,21 @@ test('ataque normal sem duração NC compatível não recebe NC', () => {
   assert.equal(result.confidence, 'no-match');
 });
 
+test('duração compatível com mais do que um perfil segue a política ambígua', () => {
+  const movement = Core.normalizeMovement({
+    type: 'attack',
+    started_at_ms: BASE,
+    arrival_at_ms: BASE + 1_002_000
+  });
+  const result = Core.classifyNcAttack(movement, {
+    sentAt: BASE,
+    expectedDurations: [1_000_000, 1_005_000]
+  });
+
+  assert.equal(result.isNc, true);
+  assert.equal(result.confidence, 'duration-ambiguous');
+});
+
 test('sem hora de envio não inventa duração nem confirmação NC', () => {
   const movement = Core.normalizeMovement({
     type: 'attack',
@@ -212,6 +249,8 @@ test('overlay usa camada fixa e não executa ações do jogo', () => {
   assert.match(source, /position:fixed/);
   assert.match(source, /pointer-events:none/);
   assert.match(source, /GameEvents\?\.command\?\.send_unit/);
+  assert.match(source, /GameEvents\?\.attack\?\.incoming/);
+  assert.match(source, /eventTimestamp/);
   assert.match(source, /#command_overview \.command/);
   assert.match(source, /#command_overview > li\.js-command-row/);
   assert.match(source, /replace\(\/\^command_\//);
