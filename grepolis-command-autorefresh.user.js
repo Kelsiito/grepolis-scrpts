@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         Grepolis — Actualização automática de comandos
 // @namespace    https://grepolis.com/
-// @version      1.3.0
+// @version      1.3.1
 // @description  Actualiza Comandos após enviar, receber ou cancelar comandos.
 // @match        https://*.grepolis.com/game/*
+// @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-command-autorefresh.user.js
+// @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-command-autorefresh.user.js
 // @grant        unsafeWindow
 // @run-at       document-idle
 // ==/UserScript==
