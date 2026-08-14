@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         Grepolis Fakes PT
 // @namespace    https://grepolis.com/
-// @version      1.4.0
+// @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-fakes.user.js
+// @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-fakes.user.js
+// @version      1.4.1
 // @description  Divide uma ofensiva terrestre em três fakes e um ataque real.
 // @author       unknown
 // @match        https://*.grepolis.com/game/*
@@ -14,7 +16,7 @@
 
   const uw = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
   const BUTTON_CLASS = 'grepolis-fakes-button';
-  const VERSION = '1.4.0';
+  const VERSION = '1.4.1';
   const ATTACK_ROOT_SELECTORS = [
     '.attack_support_window.attack',
     '.attack_support_window',
