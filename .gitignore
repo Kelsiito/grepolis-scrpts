@@ -1,0 +1,13 @@
+# Material local e pessoal, não publicar
+*.png
+GPT-Bot-BR-Studio-Contexto.md
+objetivos-cidades-*.md
+kelso-bot/
+.agents/
+
+# Ficheiros locais de desenvolvimento
+node_modules/
+.env
+.env.*
+!.env.example
+*.log

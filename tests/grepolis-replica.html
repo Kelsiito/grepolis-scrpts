@@ -1,0 +1,1503 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Réplica local do Grepolis</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    body {
+      color: #241604;
+      background:
+        radial-gradient(circle at 72% 35%, #d8c37433 0 13%, transparent 14%),
+        linear-gradient(150deg, #547b36 0 34%, #8d8b4d 35% 44%, #117b91 76% 100%);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    #ui_box {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      user-select: none;
+    }
+
+    .top_bar {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 92px;
+      border-bottom: 4px solid #4e3513;
+      background:
+        linear-gradient(#1a1b18cc, #3b321fdd 22px, #b18b3f 23px, #5f441d 26px, #181914 27px 54px, #60471f 55px, #d2a954 58px, #342717 61px);
+      box-shadow: 0 4px 10px #0008;
+    }
+
+    .town_name_area {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      width: 218px;
+      height: 52px;
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: 24px 1fr 24px;
+      align-items: stretch;
+      z-index: 20;
+    }
+
+    .button_arrow {
+      position: relative;
+      border: 2px solid #bd8e30;
+      background: linear-gradient(#171c1b, #443316);
+      cursor: pointer;
+      box-shadow: inset 0 0 0 2px #090b0a;
+    }
+
+    .button_arrow::after {
+      content: "";
+      position: absolute;
+      top: 15px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+    }
+
+    .button_arrow.left::after {
+      left: 5px;
+      border-right: 9px solid #e4bc59;
+    }
+
+    .button_arrow.right::after {
+      right: 5px;
+      border-left: 9px solid #e4bc59;
+    }
+
+    .town_groups_dropdown {
+      position: relative;
+      border-top: 2px solid #c59631;
+      border-bottom: 2px solid #c59631;
+      background: linear-gradient(#ffebad, #e8bf65 55%, #fff0b4);
+      cursor: pointer;
+    }
+
+    .town_groups_dropdown .caption {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding-bottom: 15px;
+      font: 700 15px Georgia, serif;
+      color: #3b2505;
+      text-shadow: 0 1px #fff4c6;
+    }
+
+    .town_groups_dropdown::after {
+      content: "◆";
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      color: #166aa2;
+      font-size: 13px;
+    }
+
+    #town_groups_list {
+      position: absolute;
+      top: 68px;
+      left: 50%;
+      width: 280px;
+      max-height: 420px;
+      transform: translateX(-50%);
+      z-index: 19;
+      overflow: auto;
+      border: 2px solid #8d6725;
+      border-radius: 0 0 5px 5px;
+      background: #f2d995;
+      box-shadow: 0 8px 24px #000a;
+    }
+
+    #town_groups_list[hidden] {
+      display: none;
+    }
+
+    .town_group {
+      padding: 7px;
+    }
+
+    .group_name {
+      padding: 6px;
+      color: #f2d57d;
+      background: #153846;
+      font-weight: 700;
+    }
+
+    .town_group_town {
+      position: relative;
+      padding: 8px 10px;
+      border-bottom: 1px solid #a9823d;
+      cursor: pointer;
+      background: #f7e7b4;
+    }
+
+    .town_group_town:hover,
+    .town_group_town.selected {
+      background: #d8b960;
+      font-weight: 700;
+    }
+
+    .resource_bar {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .resource {
+      min-width: 92px;
+      padding: 8px 10px;
+      border: 1px solid #9b742c;
+      border-radius: 13px;
+      color: #ffd867;
+      background: #191e1ddd;
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .world {
+      position: absolute;
+      inset: 92px 0 0;
+      background:
+        radial-gradient(ellipse at 68% 24%, #d9ca73 0 12%, transparent 13%),
+        radial-gradient(ellipse at 35% 48%, #a9a564 0 11%, transparent 12%),
+        radial-gradient(ellipse at 70% 68%, #6e853e 0 17%, transparent 18%),
+        linear-gradient(145deg, #517d38 0 52%, #2d704e 53% 59%, #137a8f 60%);
+    }
+
+    .map_focus {
+      position: absolute;
+      right: 23%;
+      top: 30%;
+      z-index: 16;
+      width: 92px;
+      height: 92px;
+      display: grid;
+      place-items: center;
+      border: 4px solid #e8be58;
+      border-radius: 50%;
+      color: #ffe79b;
+      background: #15394ecc;
+      box-shadow: 0 0 0 8px #f2cf5940, 0 8px 18px #0009;
+      font: 700 12px/1.15 Georgia, serif;
+      text-align: center;
+    }
+
+    .map_focus[hidden],
+    .map_town_menu[hidden] {
+      display: none;
+    }
+
+    .map_town_menu {
+      position: absolute;
+      right: calc(23% - 65px);
+      top: calc(30% + 100px);
+      z-index: 17;
+      width: 220px;
+      padding: 10px;
+      border: 2px solid #b88a35;
+      border-radius: 6px;
+      color: #efe0b5;
+      background: #102832f2;
+      box-shadow: 0 8px 22px #000b;
+      text-align: center;
+    }
+
+    .map_town_menu strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #f5d67e;
+      font: 700 15px Georgia, serif;
+    }
+
+    .map_town_actions {
+      display: flex;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    .map_town_actions button {
+      padding: 7px 11px;
+      border: 1px solid #b18434;
+      border-radius: 4px;
+      color: #211706;
+      background: linear-gradient(#d9b35d, #9f762f);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .command_window {
+      position: absolute;
+      right: 13%;
+      top: 22%;
+      z-index: 48;
+      width: 390px;
+      padding: 14px;
+      border: 4px ridge #8b6021;
+      color: #2a1b06;
+      background: #f5e5b5;
+      box-shadow: 0 12px 35px #000c;
+    }
+
+    .command_window h3 {
+      margin: 0 0 10px;
+      font: 700 17px Georgia, serif;
+    }
+
+    .command_window .unit_grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin: 12px 0;
+    }
+
+    .command_window .unit {
+      padding: 10px 5px;
+      border: 1px solid #9d7735;
+      background: #e1c77e;
+      text-align: center;
+    }
+
+    .command_window input {
+      width: 64px;
+      margin-top: 5px;
+      text-align: center;
+    }
+
+    .command_window .command_actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .command_window .select_all_units,
+    .command_window .send_command {
+      padding: 7px 14px;
+      border: 1px solid #7b5a1f;
+      color: #f8e6ae;
+      background: #184151;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .hill {
+      position: absolute;
+      border-radius: 50%;
+      background: #9f8d58;
+      filter: blur(1px);
+      opacity: .7;
+    }
+
+    .hill.one {
+      left: 18%;
+      top: 17%;
+      width: 420px;
+      height: 170px;
+      transform: rotate(-18deg);
+    }
+
+    .hill.two {
+      right: 8%;
+      bottom: 10%;
+      width: 500px;
+      height: 220px;
+      transform: rotate(10deg);
+    }
+
+    .city {
+      position: absolute;
+      top: 28%;
+      left: 50%;
+      width: 570px;
+      height: 330px;
+      transform: translateX(-50%);
+    }
+
+    .building {
+      position: absolute;
+      width: 115px;
+      height: 82px;
+      border: 3px solid #f0d17b;
+      border-radius: 7px 7px 18px 18px;
+      background:
+        linear-gradient(155deg, transparent 0 22%, #b7482d 23% 38%, transparent 39%),
+        linear-gradient(#eee2b0, #9e8256);
+      box-shadow: 0 7px 12px #0007;
+      cursor: pointer;
+    }
+
+    .building::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 50%;
+      bottom: -25px;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      padding: 3px 7px;
+      border: 1px solid #8a621f;
+      background: #f8e8ae;
+      font-weight: 700;
+    }
+
+    #building_hide {
+      right: 18px;
+      bottom: 30px;
+    }
+
+    .building.main {
+      left: 200px;
+      top: 30px;
+      width: 160px;
+      height: 115px;
+    }
+
+    .building.market {
+      left: 55px;
+      bottom: 36px;
+    }
+
+    .classic_window.hide {
+      position: absolute;
+      top: 184px;
+      left: 50%;
+      z-index: 45;
+      width: 810px;
+      min-height: 420px;
+      transform: translateX(-50%);
+      border: 5px ridge #8b6021;
+      background: #f5e5b5;
+      box-shadow: 0 12px 35px #000c;
+    }
+
+    .window_titlebar {
+      height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      color: #f7e3a6;
+      background: linear-gradient(#3a3020, #171815);
+      font-weight: 700;
+    }
+
+    .window_title_text {
+      flex: 1;
+    }
+
+    .window_close {
+      width: 28px;
+      height: 22px;
+      border: 1px solid #be8d31;
+      color: #f2cf6b;
+      background: #173544;
+      cursor: pointer;
+    }
+
+    .window_content {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 25px;
+      padding: 30px 35px;
+    }
+
+    .cave_controls {
+      min-height: 160px;
+      padding: 18px;
+      border: 2px solid #9b7334;
+      background: #d6bb73;
+    }
+
+    .cave_meter {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .stored_value {
+      padding: 7px;
+      border: 2px inset #8e672a;
+      color: #f7d768;
+      background: #15323e;
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .slider_fake {
+      height: 10px;
+      border: 2px inset #8e672a;
+      background: linear-gradient(90deg, #8b6f2e 0 72%, #f6e8b2 73%);
+    }
+
+    .order_count {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .order_count input {
+      width: 98px;
+      padding: 5px;
+      border: 2px inset #a47a31;
+      color: #40300f;
+      background: #fff4c8;
+      text-align: center;
+    }
+
+    .confirm_deposit {
+      width: 29px;
+      height: 29px;
+      border: 2px solid #a8802d;
+      color: #bff69d;
+      background: #164152;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .cave_summary {
+      margin-top: 24px;
+      padding: 10px;
+      border: 2px solid #9b7334;
+      background: #f7e6ad;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .spy_reports {
+      border: 2px solid #9b7334;
+      background: #f9e9ba;
+    }
+
+    .spy_reports h3 {
+      margin: 0;
+      padding: 6px;
+      color: #fff0bc;
+      background: #285c83;
+      font-size: 14px;
+    }
+
+    .spy_reports ul {
+      margin: 0;
+      padding: 8px 12px 8px 30px;
+      line-height: 1.45;
+    }
+
+    .test_lab {
+      position: fixed;
+      left: 14px;
+      bottom: 14px;
+      z-index: 80;
+      width: 315px;
+      padding: 12px;
+      border: 2px solid #b88a35;
+      border-radius: 7px;
+      color: #e9ddb9;
+      background: #0b202af2;
+      box-shadow: 0 8px 25px #000a;
+    }
+
+    .test_lab h2 {
+      margin: 0 0 8px;
+      color: #f2cf70;
+      font: 700 16px Georgia, serif;
+    }
+
+    .lab_status {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 5px 10px;
+      margin-bottom: 9px;
+      font-size: 12px;
+    }
+
+    .lab_status strong {
+      color: #fff0bd;
+    }
+
+    .lab_actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .lab_actions button {
+      padding: 6px 8px;
+      border: 1px solid #6e8a96;
+      border-radius: 4px;
+      color: #f1e1b6;
+      background: #174052;
+      cursor: pointer;
+    }
+
+    .lab_actions button.primary {
+      color: #281a05;
+      border-color: #b18434;
+      background: linear-gradient(#dfbd68, #a77b30);
+      font-weight: 700;
+    }
+
+    #lab-result {
+      min-height: 32px;
+      margin-top: 8px;
+      padding: 7px;
+      border: 1px solid #355563;
+      border-radius: 4px;
+      background: #071820;
+      font: 11px/1.4 monospace;
+    }
+
+    #lab-result.pass {
+      color: #83e7a0;
+    }
+
+    #lab-result.fail {
+      color: #ff8a80;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui_box">
+    <div class="top_bar"></div>
+
+    <div class="town_name_area">
+      <div class="btn_prev_town button_arrow left" role="button" aria-label="Cidade anterior"></div>
+      <div class="town_groups_dropdown btn_toggle_town_groups_menu" role="button" aria-label="Lista de cidades">
+        <div class="caption js-viewport"><div>Castle Black</div></div>
+      </div>
+      <div class="btn_next_town button_arrow right" role="button" aria-label="Cidade seguinte"></div>
+    </div>
+
+    <div id="town_groups_list" hidden>
+      <div class="content js-dropdown-item-list town_groups_list">
+        <div class="town_group town_group_-1 selected">
+          <div class="group_name">Todas as cidades</div>
+          <div class="group_towns ui-droppable"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="resource_bar">
+      <div class="resource">Madeira <span id="wood_count">0</span></div>
+      <div class="resource">Pedra <span id="stone_count">0</span></div>
+      <div class="resource">Prata <span id="iron_count">0</span></div>
+    </div>
+
+    <main class="world">
+      <div class="hill one"></div>
+      <div class="hill two"></div>
+      <div id="map-focus" class="map_focus" hidden></div>
+      <div id="context_menu" class="map_town_menu" hidden>
+        <strong></strong>
+        <div class="map_town_actions">
+          <button id="support" type="button">Apoiar</button>
+          <button id="attack" type="button">Atacar</button>
+        </div>
+      </div>
+      <div class="city">
+        <div class="building main" data-label="Senado"></div>
+        <div class="building market" data-label="Mercado"></div>
+        <div id="building_hide" class="building building_hide" data-building="hide" data-label="Gruta"></div>
+      </div>
+    </main>
+  </div>
+
+  <aside class="test_lab">
+    <h2>Laboratório da réplica</h2>
+    <div class="lab_status">
+      <span>Cidade atual</span><strong id="lab-town">Castle Black</strong>
+      <span>Menu de cidades</span><strong id="lab-menu">Fechado</strong>
+      <span>Gruta</span><strong id="lab-cave">Fechada</strong>
+      <span>Campo</span><strong id="lab-input">—</strong>
+      <span>Depósitos confirmados</span><strong id="lab-confirmed">0</strong>
+      <span>Cidade no mapa</span><strong id="lab-map-town">—</strong>
+      <span>Menu do mapa</span><strong id="lab-map-menu">Fechado</strong>
+      <span>Comandos enviados</span><strong id="lab-sent">0</strong>
+      <span>Último comando</span><strong id="lab-sent-type">—</strong>
+      <span>Unidades enviadas</span><strong id="lab-sent-units">0</strong>
+    </div>
+    <div class="lab_actions">
+      <button id="lab-reset">Repor</button>
+      <button id="lab-menu-toggle">Abrir menu</button>
+      <button id="lab-select-harrenhal">Selecionar Harrenhal</button>
+      <button id="lab-open-cave">Abrir gruta</button>
+      <button id="lab-run" class="primary">Testar gruta</button>
+      <button id="lab-run-dodge" class="primary">Testar desvio</button>
+      <button id="lab-run-automation" class="primary">Testar auto-preparação</button>
+      <button id="lab-run-cave-execution" class="primary">Testar depósito automático</button>
+      <button id="lab-run-support-execution" class="primary">Testar envio de apoio</button>
+      <button id="lab-run-luck" class="primary">Testar calculadora de sorte</button>
+    </div>
+    <div id="lab-result">Aguardando teste.</div>
+  </aside>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const townsData = [
+        { id: '1', name: 'Barad-dûr', silver: 27_684, cave: 6_000 },
+        { id: '2', name: 'Braavos', silver: 23_799, cave: 45_462 },
+        { id: '3', name: 'Casterly Rock', silver: 28_111, cave: 50_984 },
+        { id: '4', name: 'Castle Black', silver: 27_406, cave: 22_457 },
+        { id: '5', name: 'Dragonstone', silver: 26_937, cave: 156_076 },
+        { id: '6', name: 'Dreadfort', silver: 1_879, cave: 0 },
+        { id: '7', name: 'Harrenhal', silver: 29_625, cave: 20_294 },
+        { id: '8', name: 'Highgarden', silver: 19_448, cave: 12_000 },
+        { id: '9', name: 'Isengard', silver: 31_500, cave: 8_500 },
+        { id: '10', name: 'King’s Landing', silver: 22_700, cave: 17_000 },
+        { id: '11', name: 'Meereen', silver: 25_600, cave: 29_000 },
+        { id: '12', name: 'Out Post', silver: 18_900, cave: 3_200 },
+        { id: '13', name: 'Pentos', silver: 24_100, cave: 11_500 },
+        { id: '14', name: 'Rivendell', silver: 32_000, cave: 24_900 },
+        { id: '15', name: 'Storm’s End', silver: 28_600, cave: 14_400 },
+        { id: '16', name: 'Sunspear', silver: 29_200, cave: 21_000 },
+        { id: '17', name: 'Winterfell', silver: 30_200, cave: 9_000 }
+      ];
+      const initialTownState = Object.fromEntries(
+        townsData.map((town) => [town.id, { silver: town.silver, cave: town.cave }])
+      );
+
+      const eventSubscriptions = new Map();
+      let confirmedDeposits = 0;
+      let sentCommands = 0;
+      let lastSentCommandType = '';
+      let lastSentUnits = 0;
+      let lastMapJump = '';
+      let selectedMapTownId = '';
+      let townSwitchHistory = [];
+      let threatArrivals = {};
+
+      function resetThreatArrivals() {
+        threatArrivals = {
+          attack: Date.now() + 75_000,
+          spy: Date.now() + 120_000
+        };
+      }
+
+      resetThreatArrivals();
+
+      function makeTown(data) {
+        return {
+          id: data.id,
+          name: data.name,
+          attributes: {
+            name: data.name,
+            espionage_storage: data.cave,
+            island_x: 488,
+            island_y: 554
+          },
+          getId: () => data.id,
+          getName: () => data.name,
+          get: (key) => key === 'name' ? data.name : undefined,
+          resources: () => ({ wood: 9_200, stone: 30_600, iron: data.silver }),
+          getEspionageStorage: () => data.cave,
+          getIslandCoordinateX: () => 488,
+          getIslandCoordinateY: () => 554,
+          getLinkFragment: () => `#town=${data.id}`
+        };
+      }
+
+      const towns = Object.fromEntries(townsData.map((data) => [data.id, makeTown(data)]));
+
+      window.Game = {
+        townId: '4',
+        town_id: '4',
+        townName: 'Castle Black',
+        town_name: 'Castle Black',
+        world_id: 'pt123-replica',
+        player_id: 531
+      };
+
+      window.Timestamp = {
+        server: () => Math.floor(Date.now() / 1_000)
+      };
+
+      window.ITowns = {
+        towns,
+        getCurrentTown() {
+          return towns[String(window.Game.townId)];
+        },
+        getTown(id) {
+          return towns[String(id)];
+        },
+        getNextTownId(id) {
+          const index = townsData.findIndex((town) => town.id === String(id));
+          return townsData[(index + 1) % townsData.length].id;
+        },
+        getPreviousTownId(id) {
+          const index = townsData.findIndex((town) => town.id === String(id));
+          return townsData[(index - 1 + townsData.length) % townsData.length].id;
+        }
+      };
+
+      window.WMap = {
+        mapJump(model) {
+          lastMapJump = String(model?.id || '');
+          const town = townsData.find((item) => item.id === lastMapJump);
+          const focus = document.querySelector('#map-focus');
+          focus.hidden = !town;
+          focus.textContent = town?.name || '';
+          updateLab();
+        }
+      };
+
+      window.GameEvents = {
+        town: { town_switch: 'town_switch' },
+        window: { open: 'window_open' },
+        map: { town: { click: 'map_town_click' } }
+      };
+
+      function miniQuery(target) {
+        return {
+          val(value) {
+            if (value === undefined) return target?.value;
+            if (target) target.value = String(value);
+            return this;
+          },
+          trigger(name) {
+            target?.dispatchEvent(new Event(name, { bubbles: true }));
+            return this;
+          }
+        };
+      }
+
+      miniQuery.Observer = function Observer(eventName) {
+        return {
+          subscribe(namespace, callback) {
+            const handler = typeof namespace === 'function' ? namespace : callback;
+            if (!eventSubscriptions.has(eventName)) eventSubscriptions.set(eventName, new Set());
+            if (handler) eventSubscriptions.get(eventName).add(handler);
+          },
+          publish(payload) {
+            if (eventName === window.GameEvents.map.town.click) {
+              openMapTownMenu(payload);
+            }
+            for (const handler of eventSubscriptions.get(eventName) || []) {
+              handler(eventName, payload);
+            }
+          }
+        };
+      };
+
+      window.$ = miniQuery;
+
+      window.MM = {
+        getModels() {
+          return {
+            MovementsUnits: {
+              attack: {
+                id: 'attack-1',
+                attributes: {
+                  command_id: 'attack-1',
+                  type: 'attack',
+                  arrival_at: threatArrivals.attack,
+                  home_town_name: 'Cidade inimiga',
+                  target_town_name: 'Braavos',
+                  target_town_id: '2'
+                }
+              },
+              attack_wave_2: {
+                id: 'attack-wave-2',
+                attributes: {
+                  command_id: 'attack-wave-2',
+                  type: 'attack',
+                  arrival_at: threatArrivals.attack + 30_000,
+                  home_town_name: 'Segunda cidade inimiga',
+                  target_town_name: 'Braavos',
+                  target_town_id: '2'
+                }
+              },
+              own_outgoing: {
+                id: 'own-outgoing',
+                attributes: {
+                  command_id: 'own-outgoing',
+                  type: 'attack',
+                  arrival_at: Date.now() + 35_000_000,
+                  player_id: 531,
+                  home_town_id: '5',
+                  home_town_name: 'Dragonstone',
+                  target_town_name: 'Cidade estrangeira',
+                  target_town_id: '2'
+                }
+              },
+              own_returning: {
+                id: 'own-returning',
+                attributes: {
+                  command_id: 'own-returning',
+                  type: 'attack',
+                  arrival_at: Date.now() + 36_000_000,
+                  player_id: 531,
+                  home_town_id: '10',
+                  home_town_name: 'King’s Landing',
+                  target_town_name: 'King’s Landing',
+                  target_town_id: '10'
+                }
+              },
+              spy: {
+                id: 'spy-1',
+                attributes: {
+                  command_id: 'spy-1',
+                  type: 'attack_spy',
+                  arrival_at: threatArrivals.spy,
+                  home_town_name: 'Cidade inimiga',
+                  target_town_name: 'Castle Black',
+                  target_town_id: '4'
+                }
+              }
+            }
+          };
+        },
+        getOnlyCollectionByName() {
+          return null;
+        }
+      };
+
+      function publish(eventName, payload) {
+        miniQuery.Observer(eventName).publish(payload);
+      }
+
+      function selectedTown() {
+        return townsData.find((town) => town.id === String(window.Game.townId));
+      }
+
+      function updateLab() {
+        const town = selectedTown();
+        const list = document.querySelector('#town_groups_list');
+        const cave = document.querySelector('.classic_window.hide');
+        const input = cave?.querySelector('.order_count input');
+        const mapTown = townsData.find((item) => item.id === selectedMapTownId);
+        const mapMenu = document.querySelector('#context_menu');
+        document.querySelector('#lab-town').textContent = town.name;
+        document.querySelector('#lab-menu').textContent = list.hidden ? 'Fechado' : 'Aberto';
+        document.querySelector('#lab-cave').textContent = cave ? 'Aberta' : 'Fechada';
+        document.querySelector('#lab-input').textContent = input?.value || '—';
+        document.querySelector('#lab-confirmed').textContent = String(confirmedDeposits);
+        document.querySelector('#lab-map-town').textContent = mapTown?.name || '—';
+        document.querySelector('#lab-map-menu').textContent = mapMenu.hidden ? 'Fechado' : 'Aberto';
+        document.querySelector('#lab-sent').textContent = String(sentCommands);
+        document.querySelector('#lab-sent-type').textContent = lastSentCommandType || '—';
+        document.querySelector('#lab-sent-units').textContent = String(lastSentUnits);
+      }
+
+      function updateTownUi() {
+        const town = selectedTown();
+        document.querySelector('.town_groups_dropdown .caption > div').textContent = town.name;
+        document.querySelector('#wood_count').textContent = '9200';
+        document.querySelector('#stone_count').textContent = '30600';
+        document.querySelector('#iron_count').textContent = String(town.silver);
+        document.querySelectorAll('.town_group_town').forEach((node) => {
+          node.classList.toggle('selected', node.dataset.townid === town.id);
+        });
+
+        const cave = document.querySelector('.classic_window.hide');
+        if (cave) updateCaveUi(cave);
+        updateLab();
+      }
+
+      function switchTown(id) {
+        const nextTown = townsData.find((town) => town.id === String(id));
+        if (!nextTown) return;
+        window.Game.townId = nextTown.id;
+        window.Game.town_id = nextTown.id;
+        window.Game.townName = nextTown.name;
+        window.Game.town_name = nextTown.name;
+        townSwitchHistory.push(nextTown.id);
+        document.querySelector('#town_groups_list').hidden = true;
+        updateTownUi();
+        publish(window.GameEvents.town.town_switch, { town_id: nextTown.id });
+      }
+
+      function updateCaveUi(cave) {
+        const town = selectedTown();
+        cave.querySelector('.window_title_text').textContent = `Gruta (${town.name})`;
+        cave.querySelector('.stored_value').textContent = String(town.silver);
+        cave.querySelector('.cave_summary').textContent = `Moedas de prata (${town.cave}/∞)`;
+        cave.querySelector('.order_count input').value = String(Math.max(0, town.silver - 8));
+      }
+
+      function openCave() {
+        document.querySelector('.classic_window.hide')?.remove();
+        const cave = document.createElement('section');
+        cave.className = 'js-window-main-container classic_window hide';
+        cave.innerHTML = `
+          <div class="window_titlebar">
+            <div class="window_title_text"></div>
+            <button class="window_close" type="button" aria-label="Fechar">×</button>
+          </div>
+          <div class="window_content js-window-content">
+            <div>
+              <div class="cave_controls">
+                <div class="cave_meter">
+                  <div class="slider_fake"></div>
+                  <div class="stored_value"></div>
+                </div>
+                <div class="order_count">
+                  <input type="text" inputmode="numeric" aria-label="Prata a depositar">
+                  <button class="confirm_deposit" type="button" aria-label="Confirmar depósito">✓</button>
+                </div>
+              </div>
+              <div class="cave_summary"></div>
+            </div>
+            <div class="spy_reports">
+              <h3>Últimos 10 relatórios de espionagem:</h3>
+              <ul>
+                <li>Meereen está a espiar Barad-dûr</li>
+                <li>King’s Landing está a espiar Barad-dûr</li>
+                <li>King’s Landing está a espiar Out Post</li>
+                <li>Meereen está a espiar Taipa de Baixo</li>
+              </ul>
+            </div>
+          </div>
+        `;
+        document.querySelector('#ui_box').appendChild(cave);
+        cave.querySelector('.window_close').addEventListener('click', () => {
+          cave.remove();
+          updateLab();
+        });
+        cave.querySelector('.confirm_deposit').addEventListener('click', () => {
+          const town = selectedTown();
+          const amount = Number(cave.querySelector('.order_count input').value) || 0;
+          town.cave += amount;
+          town.silver -= amount;
+          confirmedDeposits += 1;
+          updateTownUi();
+          updateLab();
+        });
+        cave.querySelector('.order_count input').addEventListener('input', updateLab);
+        updateCaveUi(cave);
+        publish(window.GameEvents.window.open, { attributes: { window_type: 'hide' } });
+        updateLab();
+      }
+
+      function openMapTownMenu(payload) {
+        const townId = String(payload?.id || lastMapJump || '');
+        const town = townsData.find((item) => item.id === townId);
+        if (!town) return;
+        selectedMapTownId = town.id;
+        const focus = document.querySelector('#map-focus');
+        focus.hidden = false;
+        focus.textContent = town.name;
+        const menu = document.querySelector('#context_menu');
+        menu.dataset.townId = town.id;
+        menu.querySelector('strong').textContent = town.name;
+        menu.hidden = false;
+        updateLab();
+      }
+
+      function openCommandWindow(type) {
+        const target = townsData.find((item) => item.id === selectedMapTownId);
+        if (!target) return;
+        document.querySelector('.command_window')?.remove();
+        const command = document.createElement('section');
+        command.className = `command_window ${type}`;
+        command.innerHTML = `
+          <h3>${type === 'support' ? 'Apoiar' : 'Atacar'} ${target.name}</h3>
+          <div>Braavos → ${target.name}</div>
+          <div class="way_duration" data-duration="20">Duração: 00:00:20</div>
+          <div class="unit_grid">
+            <label class="unit unit_input" data-unit="sword" data-max="1250">Espadas<input name="unit_sword" data-max="1250" value="0"></label>
+            <label class="unit unit_input" data-unit="archer" data-max="600">Arqueiros<input name="unit_archer" data-max="600" value="0"></label>
+            <label class="unit unit_input" data-unit="bireme" data-max="80">Biremes<input name="unit_bireme" data-max="80" value="0"></label>
+            <label class="unit unit_input" data-unit="small_transporter" data-max="40">Transportes<input name="unit_small_transporter" data-max="40" value="0"></label>
+          </div>
+          <div class="command_actions">
+            <button class="select_all_units" type="button">Todas</button>
+            <button class="send_command" type="button">Enviar tropas</button>
+          </div>
+        `;
+        document.querySelector('#ui_box').appendChild(command);
+        command.querySelector('.select_all_units').addEventListener('click', () => {
+          command.querySelectorAll('[data-unit] input').forEach((input) => {
+            input.value = input.dataset.max || input.closest('[data-max]')?.dataset.max || '0';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        });
+        command.querySelector('.send_command').addEventListener('click', () => {
+          lastSentUnits = [...command.querySelectorAll('[data-unit] input')]
+            .reduce((sum, input) => sum + (Number(input.value) || 0), 0);
+          lastSentCommandType = type;
+          sentCommands += 1;
+          command.remove();
+          updateLab();
+        });
+        updateLab();
+      }
+
+      function resetWorld() {
+        confirmedDeposits = 0;
+        sentCommands = 0;
+        lastSentCommandType = '';
+        lastSentUnits = 0;
+        lastMapJump = '';
+        selectedMapTownId = '';
+        townSwitchHistory = [];
+        resetThreatArrivals();
+        townsData.forEach((town) => Object.assign(town, initialTownState[town.id]));
+        document.querySelector('.classic_window.hide')?.remove();
+        document.querySelector('.command_window')?.remove();
+        document.querySelector('#map-focus').hidden = true;
+        document.querySelector('#context_menu').hidden = true;
+        document.querySelector('#context_menu').dataset.townId = '';
+        document.querySelector('#town_groups_list').hidden = true;
+        switchTown('4');
+        document.querySelector('#lab-result').className = '';
+        document.querySelector('#lab-result').textContent = 'Réplica reposta em Castle Black.';
+        updateLab();
+      }
+
+      function waitFor(check, timeout = 9_000, interval = 100) {
+        return new Promise((resolve, reject) => {
+          const started = Date.now();
+          const timer = setInterval(() => {
+            const value = check();
+            if (value) {
+              clearInterval(timer);
+              resolve(value);
+            } else if (Date.now() - started > timeout) {
+              clearInterval(timer);
+              reject(new Error('Tempo de espera excedido.'));
+            }
+          }, interval);
+        });
+      }
+
+      async function runAssistantTest() {
+        const result = document.querySelector('#lab-result');
+        result.className = '';
+        result.textContent = 'A executar: Castle Black → Harrenhal → Gruta → 4 706…';
+        resetWorld();
+        result.textContent = 'A executar: Castle Black → Harrenhal → Gruta → 4 706…';
+
+        const caveTab = await waitFor(() => document.querySelector('[data-tab="cave"]'));
+        caveTab.click();
+        const prepareButton = await waitFor(() => (
+          document.querySelector('[data-action="prepare-cave"][data-town-id="7"]')
+        ));
+        prepareButton.click();
+
+        await waitFor(() => window.Game.townId === '7');
+        const input = await waitFor(() => document.querySelector('.classic_window.hide .order_count input'));
+        await waitFor(() => input.value === '4706');
+
+        const checks = [
+          ['cidade', window.Game.townId === '7'],
+          ['gruta aberta', Boolean(document.querySelector('.classic_window.hide'))],
+          ['campo 4706', input.value === '4706'],
+          ['sem confirmação', confirmedDeposits === 0]
+        ];
+        const failed = checks.filter(([, passed]) => !passed).map(([label]) => label);
+        if (failed.length) throw new Error(`Falhou: ${failed.join(', ')}`);
+
+        result.className = 'pass';
+        result.textContent = 'PASSOU: Harrenhal selecionada, gruta aberta, 4 706 preenchidos e nenhum depósito confirmado.';
+        updateLab();
+      }
+
+      async function runDodgeTest() {
+        const result = document.querySelector('#lab-result');
+        result.className = '';
+        resetWorld();
+        result.textContent = 'A executar: ataque a Braavos → selecionar Braavos → abrir Highgarden no mapa…';
+
+        const threatsTab = await waitFor(() => document.querySelector('[data-tab="threats"]'));
+        threatsTab.click();
+        const prepareButton = await waitFor(() => (
+          document.querySelector('[data-action="prepare-dodge"][data-id="attack-1"]')
+        ));
+        prepareButton.click();
+
+        await waitFor(() => window.Game.townId === '2');
+        await waitFor(() => lastMapJump === '8');
+        const menu = await waitFor(() => (
+          document.querySelector('#context_menu[data-town-id="8"]:not([hidden])')
+        ));
+
+        const checks = [
+          ['cidade ameaçada Braavos', window.Game.townId === '2'],
+          ['salto para Highgarden', lastMapJump === '8'],
+          ['menu de Highgarden', menu.querySelector('strong')?.textContent === 'Highgarden'],
+          ['botão Apoiar disponível', Boolean(menu.querySelector('#support'))],
+          ['botão Atacar disponível', Boolean(menu.querySelector('#attack'))],
+          ['nenhum comando enviado', sentCommands === 0]
+        ];
+        const failed = checks.filter(([, passed]) => !passed).map(([label]) => label);
+        if (failed.length) throw new Error(`Falhou: ${failed.join(', ')}`);
+
+        result.className = 'pass';
+        result.textContent = 'PASSOU: Braavos selecionada, Highgarden aberta no mapa, Apoiar/Atacar disponíveis e zero tropas enviadas.';
+        updateLab();
+      }
+
+      async function runAutomationTest() {
+        const result = document.querySelector('#lab-result');
+        result.className = '';
+        resetWorld();
+        result.textContent = 'A executar auto-preparação: ataque a Braavos e espionagem a Castle Black…';
+
+        document.querySelector('[data-action="disarm-automation"]')?.click();
+        document.querySelector('[data-action="refresh"]')?.click();
+        const settingsTab = await waitFor(() => document.querySelector('[data-tab="settings"]'));
+        settingsTab.click();
+        const armButton = await waitFor(() => document.querySelector('[data-action="arm-automation"]'));
+        armButton.click();
+
+        await waitFor(() => townSwitchHistory.includes('2'));
+        const menu = await waitFor(() => (
+          document.querySelector('#context_menu[data-town-id="8"]:not([hidden])')
+        ));
+        const input = await waitFor(() => (
+          document.querySelector('.classic_window.hide .order_count input')
+        ));
+        await waitFor(() => input.value === '2543');
+
+        const checks = [
+          ['passou por Braavos', townSwitchHistory.includes('2')],
+          ['regressou a Castle Black', window.Game.townId === '4'],
+          ['menu de Highgarden', menu.querySelector('strong')?.textContent === 'Highgarden'],
+          ['gruta preenchida com 2543', input.value === '2543'],
+          ['nenhum depósito confirmado', confirmedDeposits === 0],
+          ['nenhum comando enviado', sentCommands === 0]
+        ];
+        const failed = checks.filter(([, passed]) => !passed).map(([label]) => label);
+        if (failed.length) throw new Error(`Falhou: ${failed.join(', ')}`);
+
+        result.className = 'pass';
+        result.textContent = 'PASSOU: ataque e espionagem auto-preparados; zero depósitos e zero comandos enviados.';
+        updateLab();
+      }
+
+      async function runCaveExecutionTest() {
+        const result = document.querySelector('#lab-result');
+        result.className = '';
+        resetWorld();
+        result.textContent = 'A executar depósito automático controlado na gruta de Castle Black…';
+
+        const settingsTab = await waitFor(() => document.querySelector('[data-tab="settings"]'));
+        settingsTab.click();
+        const confirmCheckbox = await waitFor(() => (
+          document.querySelector('[data-setting="autoConfirmCave"]')
+        ));
+        if (!confirmCheckbox.checked) confirmCheckbox.click();
+        const executionButton = await waitFor(() => (
+          document.querySelector('[data-action="arm-cave-execution"]')
+        ));
+        executionButton.click();
+        const automationButton = await waitFor(() => (
+          document.querySelector('[data-action="arm-automation"]')
+        ));
+        automationButton.click();
+
+        await waitFor(() => confirmedDeposits === 1, 12_000);
+        const castleBlack = townsData.find((town) => town.id === '4');
+        const checks = [
+          ['um depósito confirmado', confirmedDeposits === 1],
+          ['valor 2543 retirado', castleBlack.silver === 24_863],
+          ['valor 2543 guardado', castleBlack.cave === 25_000],
+          ['nenhum comando enviado', sentCommands === 0]
+        ];
+        const failed = checks.filter(([, passed]) => !passed).map(([label]) => label);
+        if (failed.length) throw new Error(`Falhou: ${failed.join(', ')}`);
+
+        result.className = 'pass';
+        result.textContent = 'PASSOU: 2 543 depositados automaticamente na gruta e zero tropas enviadas.';
+        updateLab();
+      }
+
+      async function runSupportExecutionTest() {
+        const result = document.querySelector('#lab-result');
+        result.className = '';
+        resetWorld();
+        result.textContent = 'A executar envio automático controlado de Braavos para Highgarden…';
+
+        const settingsTab = await waitFor(() => document.querySelector('[data-tab="settings"]'));
+        settingsTab.click();
+        document.querySelector('[data-action="disarm-automation"]')?.click();
+        const caveCheckbox = await waitFor(() => (
+          document.querySelector('[data-setting="autoConfirmCave"]')
+        ));
+        if (caveCheckbox.checked) caveCheckbox.click();
+        const supportCheckbox = await waitFor(() => (
+          document.querySelector('[data-setting="autoSendSupport"]')
+        ));
+        if (!supportCheckbox.checked) supportCheckbox.click();
+        const sendPercent = document.querySelector('[data-setting="supportSendPercent"]');
+        sendPercent.value = '50';
+        sendPercent.dispatchEvent(new Event('change', { bubbles: true }));
+        const reserve = document.querySelector('[data-setting="supportReservePerUnit"]');
+        reserve.value = '10';
+        reserve.dispatchEvent(new Event('change', { bubbles: true }));
+        const minimum = document.querySelector('[data-setting="supportMinimumTotal"]');
+        minimum.value = '100';
+        minimum.dispatchEvent(new Event('change', { bubbles: true }));
+        const arrivalBuffer = document.querySelector('[data-setting="supportArrivalBufferSeconds"]');
+        arrivalBuffer.value = '10';
+        arrivalBuffer.dispatchEvent(new Event('change', { bubbles: true }));
+        const supportArmButton = await waitFor(() => (
+          document.querySelector('[data-action="arm-support-execution"]')
+        ));
+        supportArmButton.click();
+        const automationButton = await waitFor(() => (
+          document.querySelector('[data-action="arm-automation"]')
+        ));
+        automationButton.click();
+
+        await waitFor(() => sentCommands === 1, 12_000);
+        const checks = [
+          ['um único comando enviado', sentCommands === 1],
+          ['comando do tipo apoio', lastSentCommandType === 'support'],
+          ['percentagem e reserva aplicadas', lastSentUnits === 965],
+          ['nenhum depósito confirmado', confirmedDeposits === 0],
+          ['cidade ameaçada Braavos', townSwitchHistory.includes('2')],
+          ['destino Highgarden', lastMapJump === '8']
+        ];
+        const failed = checks.filter(([, passed]) => !passed).map(([label]) => label);
+        if (failed.length) throw new Error(`Falhou: ${failed.join(', ')}`);
+
+        result.className = 'pass';
+        result.textContent = 'PASSOU: um apoio com 965 unidades enviado após aplicar 50% e reserva 10; Atacar não foi utilizado.';
+        updateLab();
+      }
+
+      async function runLuckTest() {
+        const result = document.querySelector('#lab-result');
+        result.className = '';
+        resetWorld();
+        result.textContent = 'A testar a margem de sorte com ataque 100 000 e defesa 110 000…';
+
+        const luckTab = await waitFor(() => document.querySelector('[data-tab="luck"]'));
+        luckTab.click();
+        const setField = async (name, value) => {
+          const field = await waitFor(() => document.querySelector(`[data-setting="${name}"]`));
+          field.value = String(value);
+          field.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        await setField('luckAttackStrength', 100_000);
+        await setField('luckDefenseStrength', 110_000);
+        await setField('luckMorale', 100);
+        await setField('luckAttackBonus', 0);
+        await setField('luckDefenseBonus', 0);
+        await setField('luckSelected', 10);
+
+        const status = await waitFor(() => document.querySelector('[data-luck-status]'));
+        const required = document.querySelector('[data-luck-required]');
+        const selected = document.querySelector('[data-luck-selected-result]');
+        const checks = [
+          ['resultado depende da sorte', status.dataset.luckStatus === 'possible'],
+          ['sorte mínima de 10%', Math.abs(Number(required?.dataset.luckRequired) - 10) < 0.001],
+          ['10% torna o cenário favorável', selected?.dataset.luckSelectedResult === 'favorable'],
+          ['nenhum depósito confirmado', confirmedDeposits === 0],
+          ['nenhum comando enviado', sentCommands === 0]
+        ];
+        const failed = checks.filter(([, passed]) => !passed).map(([label]) => label);
+        if (failed.length) throw new Error(`Falhou: ${failed.join(', ')}`);
+
+        result.className = 'pass';
+        result.textContent = 'PASSOU: sorte mínima +10%, cenário favorável a +10% e nenhuma ação executada.';
+        updateLab();
+      }
+
+      const listContainer = document.querySelector('.group_towns.ui-droppable');
+      for (const town of townsData) {
+        const row = document.createElement('div');
+        row.className = 'town_group_town';
+        row.dataset.townid = town.id;
+        row.innerHTML = `<span>${town.name}</span>`;
+        row.addEventListener('click', () => switchTown(town.id));
+        listContainer.appendChild(row);
+      }
+
+      document.querySelector('.town_groups_dropdown')
+        .addEventListener('click', () => {
+          const list = document.querySelector('#town_groups_list');
+          list.hidden = !list.hidden;
+          updateLab();
+        });
+
+      document.querySelector('.btn_next_town').addEventListener('click', () => {
+        switchTown(window.ITowns.getNextTownId(window.Game.townId));
+      });
+
+      document.querySelector('.btn_prev_town').addEventListener('click', () => {
+        switchTown(window.ITowns.getPreviousTownId(window.Game.townId));
+      });
+
+      document.querySelector('#building_hide').addEventListener('click', openCave);
+      document.addEventListener('click', (event) => {
+        const link = event.target.closest?.('.gp_town_link');
+        if (!link) return;
+        const townId = String(
+          link.dataset.townId
+          || new URL(link.href, location.href).hash.match(/town=(\d+)/)?.[1]
+          || ''
+        );
+        openMapTownMenu({ id: townId });
+        event.preventDefault();
+      });
+      document.querySelector('#support').addEventListener('click', () => openCommandWindow('support'));
+      document.querySelector('#attack').addEventListener('click', () => openCommandWindow('attack'));
+      document.querySelector('#lab-reset').addEventListener('click', resetWorld);
+      document.querySelector('#lab-menu-toggle').addEventListener('click', () => {
+        document.querySelector('.town_groups_dropdown').click();
+      });
+      document.querySelector('#lab-select-harrenhal').addEventListener('click', () => switchTown('7'));
+      document.querySelector('#lab-open-cave').addEventListener('click', openCave);
+      document.querySelector('#lab-run').addEventListener('click', () => {
+        runAssistantTest().catch((error) => {
+          const result = document.querySelector('#lab-result');
+          result.className = 'fail';
+          result.textContent = `FALHOU: ${error.message}`;
+          updateLab();
+        });
+      });
+      document.querySelector('#lab-run-dodge').addEventListener('click', () => {
+        runDodgeTest().catch((error) => {
+          const result = document.querySelector('#lab-result');
+          result.className = 'fail';
+          result.textContent = `FALHOU: ${error.message}`;
+          updateLab();
+        });
+      });
+      document.querySelector('#lab-run-automation').addEventListener('click', () => {
+        runAutomationTest().catch((error) => {
+          const result = document.querySelector('#lab-result');
+          result.className = 'fail';
+          result.textContent = `FALHOU: ${error.message}`;
+          updateLab();
+        });
+      });
+      document.querySelector('#lab-run-cave-execution').addEventListener('click', () => {
+        runCaveExecutionTest().catch((error) => {
+          const result = document.querySelector('#lab-result');
+          result.className = 'fail';
+          result.textContent = `FALHOU: ${error.message}`;
+          updateLab();
+        });
+      });
+      document.querySelector('#lab-run-support-execution').addEventListener('click', () => {
+        runSupportExecutionTest().catch((error) => {
+          const result = document.querySelector('#lab-result');
+          result.className = 'fail';
+          result.textContent = `FALHOU: ${error.message}`;
+          updateLab();
+        });
+      });
+      document.querySelector('#lab-run-luck').addEventListener('click', () => {
+        runLuckTest().catch((error) => {
+          const result = document.querySelector('#lab-result');
+          result.className = 'fail';
+          result.textContent = `FALHOU: ${error.message}`;
+          updateLab();
+        });
+      });
+
+      localStorage.setItem('ga.settings.v1', JSON.stringify({
+        enabled: true,
+        simulation: false,
+        warningSeconds: 300,
+        dodgeLeadSeconds: 90,
+        caveReserve: 5000,
+        caveTarget: 25000,
+        autoConfirmCave: false,
+        caveConfirmMax: 10000,
+        caveSessionBudget: 30000,
+        executionArmMinutes: 10,
+        autoSendSupport: false,
+        supportSessionLimit: 3,
+        supportMinLeadSeconds: 30,
+        supportExecutionArmMinutes: 10,
+        supportSendPercent: 100,
+        supportReservePerUnit: 0,
+        supportMinimumTotal: 1,
+        supportArrivalBufferSeconds: 10,
+        supportRequireTravelTime: true,
+        luckAttackStrength: 100000,
+        luckDefenseStrength: 100000,
+        luckMorale: 100,
+        luckAttackBonus: 0,
+        luckDefenseBonus: 0,
+        luckSelected: 0,
+        scanInterval: 5000,
+        waveGapSeconds: 300,
+        autoPrepareCave: true,
+        autoPrepareDodge: true,
+        automationArmMinutes: 30,
+        automationFailureLimit: 3,
+        watchdogStaleSeconds: 20,
+        collapsed: false,
+        activeTab: 'cave',
+        panelX: 350,
+        panelY: 108,
+        launcherSide: 'right',
+        dodgeTargetTownId: '8',
+        dodgeFallbackTownId: '11',
+        autoSelectFallback: true,
+        townPolicies: {}
+      }));
+      localStorage.removeItem('ga.logs.v1');
+      localStorage.removeItem('ga.seen.v1');
+      localStorage.removeItem('ga.actions.v1');
+
+      window.__replica = {
+        townsData,
+        switchTown,
+        openCave,
+        resetWorld,
+        runAssistantTest,
+        runDodgeTest,
+        runAutomationTest,
+        runCaveExecutionTest,
+        runSupportExecutionTest,
+        runLuckTest,
+        get confirmedDeposits() {
+          return confirmedDeposits;
+        },
+        get sentCommands() {
+          return sentCommands;
+        },
+        get lastSentCommandType() {
+          return lastSentCommandType;
+        },
+        get lastSentUnits() {
+          return lastSentUnits;
+        },
+        get lastMapJump() {
+          return lastMapJump;
+        }
+      };
+
+      updateTownUi();
+    })();
+  </script>
+  <script src="../grepolis-assistant.user.js"></script>
+</body>
+</html>

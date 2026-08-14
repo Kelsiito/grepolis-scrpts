@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Réplica do Planeador Grepolis</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:Arial,sans-serif;background:#476f82;color:#2b1a0b}
+    .stage{min-height:100%;display:grid;place-items:center;background:radial-gradient(circle,#91aa74,#416f7d)}
+    .ui-dialog{width:780px;padding:8px;border:4px ridge #8c672c;background:#c6a966;box-shadow:0 12px 35px #0008}
+    .ui-dialog-titlebar{padding:8px 12px;background:#3c2b19;color:#f7da8b;font-weight:bold}
+    .gpwindow_content{padding:12px;background:#e0cb94}
+    .attack_planner.index{border:1px solid #6f4b23;background:#d8bd7b}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border:1px solid #7b5a2d;text-align:left}
+    th{background:#684927;color:#f4d686}
+    .buttons_bar{padding:9px}
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="ui-dialog" role="dialog" aria-label="Planeador de ataques">
+      <div class="ui-dialog-titlebar">Planeador de ataques — réplica segura</div>
+      <div id="gpwnd_test" class="gpwindow_content">
+        <div class="attack_planner index">
+          <table>
+            <thead><tr><th>Nome</th><th>Descrição</th><th>Alvos</th><th>Ataques</th><th>Apoio</th></tr></thead>
+            <tbody><tr><td>Bbhh</td><td>Plano de teste</td><td>1</td><td>1</td><td>0</td></tr></tbody>
+          </table>
+          <div class="buttons_bar">Criar um novo plano</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.Game = { world_id: 'replica', player_id: 1, townId: 19, townName: '54.001' };
+    window.Timestamp = { server: () => Math.floor(Date.now() / 1000) };
+    window.ITowns = {
+      getTowns: () => ({ 19: { id: 19, getId: () => 19 } })
+    };
+    window.MM = { getModels: () => ({ MovementsUnits: {} }) };
+    window.gpAjax = {
+      ajaxGet(controller, action, data, async, callback) {
+        callback(action === 'attacks' ? { data: { attacks: [] } } : {
+          json: { controller_type: 'town_info', target_id: data.id, type: action, units: {} }
+        });
+      },
+      ajaxPost() { throw new Error('A réplica nunca permite envios.'); }
+    };
+  </script>
+  <script src="../grepolis-command-paster.user.js"></script>
+</body>
+</html>

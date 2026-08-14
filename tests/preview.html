@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Grepolis Assistant Preview</title>
+  <style>
+    html,body{height:100%;margin:0}
+    body{background:linear-gradient(145deg,#52783d,#2f5d42 45%,#176b80);font-family:Arial,sans-serif}
+    .hint{position:fixed;left:18px;bottom:18px;padding:10px 14px;color:#f8e5aa;background:#102832dd;border:1px solid #b88a35;border-radius:5px}
+  </style>
+</head>
+<body>
+  <div class="hint">Ambiente local de teste — 17 cidades simuladas</div>
+  <script>
+    const names = [
+      'Barad-dûr', 'Braavos', 'Casterly Rock', 'Castle Black', 'Dragonstone',
+      'Erebor', 'Gondolin', 'Highgarden', 'Isengard', 'King’s Landing',
+      'Minas Tirith', 'Pentos', 'Rivendell', 'Storm’s End', 'Sunspear',
+      'The Eyrie', 'Winterfell'
+    ];
+    function town(id, name) {
+      return {
+        id: String(id),
+        getId: () => String(id),
+        getName: () => name,
+        resources: () => ({ wood: 10000, stone: 20000, iron: 30000 + id * 700 }),
+        getEspionageStorage: () => 18000 + id * 2700
+      };
+    }
+    window.Game = { townId: '4', townName: 'Castle Black', world_id: 'preview' };
+    window.ITowns = {
+      towns: Object.fromEntries(names.map((name, index) => [String(index + 1), town(index + 1, name)])),
+      getCurrentTown() { return this.towns[String(window.Game.townId)]; },
+      getTown(id) { return this.towns[String(id)]; }
+    };
+    window.Layout = {
+      townSwitch(id) { window.Game.townId = String(id); }
+    };
+    window.WMap = { mapJump() {} };
+    window.MM = {
+      getModels() {
+        return {
+          MovementsUnits: {
+            attack: { id: 'attack-1', attributes: { command_id: 'attack-1', type: 'attack', arrival_at: Date.now() + 245000, home_town_name: 'Cidade de teste', target_town_name: 'Braavos', target_town_id: '2' } },
+            spy: { id: 'spy-1', attributes: { command_id: 'spy-1', type: 'attack_spy', arrival_at: Date.now() + 165000, home_town_name: 'Cidade de teste', target_town_name: 'Castle Black', target_town_id: '4' } }
+          }
+        };
+      },
+      getCollections() {
+        return {
+          Commands: {
+            models: [
+              { id: 'attack-1', attributes: { command_type: 'attack', arrival_at: Date.now() + 245000, origin_town_name: 'Cidade de teste', target_town_name: 'Braavos', target_town_id: '2' } },
+              { id: 'spy-1', attributes: { command_type: 'spy', arrival_at: Date.now() + 165000, origin_town_name: 'Cidade de teste', target_town_name: 'Castle Black', target_town_id: '4' } }
+            ]
+          }
+        };
+      }
+    };
+  </script>
+  <div id="building_hide" style="display:none">
+    <input id="hide_order_input" type="number">
+  </div>
+  <script src="../grepolis-assistant.user.js"></script>
+</body>
+</html>
