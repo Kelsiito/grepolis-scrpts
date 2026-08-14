@@ -3,7 +3,7 @@
 // @namespace    https://grepolis.com/
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
 // @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-attack-info.user.js
-// @version      1.0.4
+// @version      1.0.5
 // @description  Mostra duração, hora de envio e deteção cega de navios colonizadores.
 // @author       Codex
 // @match        https://*.grepolis.com/game/*
@@ -16,7 +16,7 @@
 (function grepolisAttackInfoFactory() {
   'use strict';
 
-  const VERSION = '1.0.4';
+  const VERSION = '1.0.5';
   const SENT_STORAGE_KEY = 'gai.sent.v1';
   const OVERLAY_ID = 'gai-overlay-layer';
   const MAX_SENT_RECORDS = 250;
@@ -25,7 +25,7 @@
   const SCAN_INTERVAL_MS = 1_000;
   const SLOT_LEFT_RATIO = 0.35;
   const SLOT_RIGHT_RATIO = 0.125;
-  const SLOT_HEIGHT_PX = 18;
+  const SLOT_HEIGHT_PX = 28;
 
   function number(value, fallback = 0) {
     const parsed = Number(value);
@@ -699,12 +699,19 @@
   function overlayRect(row) {
     const rect = row.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
-    const left = rect.width * SLOT_LEFT_RATIO;
-    const right = rect.width * (1 - SLOT_RIGHT_RATIO);
+    const infoBox = row.querySelector('.cmd_info_box')?.getBoundingClientRect();
+    const units = row.querySelector('.command_overview_units')?.getBoundingClientRect();
+    const left = infoBox
+      ? infoBox.right - rect.left + 8
+      : rect.width * SLOT_LEFT_RATIO;
+    const right = units && units.left > left + rect.left
+      ? units.left - rect.left - 8
+      : rect.width * (1 - SLOT_RIGHT_RATIO);
+    if (right <= left + 100) return null;
     return {
       left,
       top: Math.max(0, (rect.height - SLOT_HEIGHT_PX) / 2),
-      width: Math.max(80, right - left),
+      width: right - left,
       height: Math.min(SLOT_HEIGHT_PX, rect.height)
     };
   }
@@ -737,9 +744,8 @@
     node.style.height = `${rect.height}px`;
     node.title = `Duração total: ${display.durationText} | Enviado: ${display.sentText}`;
     node.innerHTML = `
-      <span>Duração ${escapeHtml(display.durationText)}</span>
-      <span>· Enviado ${escapeHtml(display.sentText)}</span>
-      ${display.ncText ? `<span class="gai-nc ${display.ncConfirmed ? '' : 'gai-nc-unknown'}">· ${escapeHtml(display.ncText)}</span>` : ''}
+      <span class="gai-line">Duração ${escapeHtml(display.durationText)}</span>
+      <span class="gai-line">Enviado ${escapeHtml(display.sentText)}${display.ncText ? ` <span class="gai-nc ${display.ncConfirmed ? '' : 'gai-nc-unknown'}">· ${escapeHtml(display.ncText)}</span>` : ''}</span>
     `;
     return key;
   }
@@ -754,8 +760,8 @@
     const style = document.createElement('style');
     style.textContent = `
       #${OVERLAY_ID}{position:fixed;inset:0;pointer-events:none;z-index:2147483647;overflow:visible}
-      .gai-overlay{position:absolute;display:flex;align-items:center;gap:3px;box-sizing:border-box;overflow:hidden;white-space:nowrap;pointer-events:none;color:#5b2d08;font:700 10px/16px Arial,sans-serif;text-shadow:0 1px #fff1b3}
-      .gai-overlay>span{flex:0 0 auto}
+      .gai-overlay{position:absolute;display:grid;align-content:center;box-sizing:border-box;overflow:hidden;white-space:nowrap;pointer-events:none;color:#5b2d08;font:700 10px/13px Arial,sans-serif;text-shadow:0 1px #fff1b3}
+      .gai-line{display:block;overflow:hidden;text-overflow:clip}
       .gai-nc{color:#c40000;font-weight:700}
       .gai-nc-unknown{color:#8b2a00}
     `;
