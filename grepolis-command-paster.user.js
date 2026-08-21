@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Grepolis — Colagem automática de comandos PT
 // @namespace    https://grepolis.com/
-// @version      2.5.4
+// @version      2.5.5
 // @description  Envia comandos já guardados no Planeador nativo, sem abrir janelas de ataque ou apoio.
 // @match        https://*.grepolis.com/game/*
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-command-paster.user.js
@@ -15,7 +15,7 @@
 (function grepolisCommandPasterFactory() {
   'use strict';
 
-  const VERSION = '2.5.4';
+  const VERSION = '2.5.5';
   const TERMINAL_STATES = new Set(['confirmed', 'cancelled', 'failed', 'expired']);
   const SUPPORTED_TYPES = new Set(['attack', 'support', 'revolt']);
   const UNIT_KEY = /^[a-z][a-z0-9_]*$/;
@@ -727,10 +727,11 @@
           error: ''
         });
         let response = null;
+        let sendError = null;
         try {
           response = await ajax('ajaxPost', 'town_info', 'send_units', buildSendPayload(job.command), 5_000);
         } catch (error) {
-          throw new Error(`Envio ambíguo: ${error.message || error}`);
+          sendError = error;
         }
         const sendResponseAt = serverNowMs();
         updateJob(job.id, {
@@ -750,6 +751,13 @@
           );
         } catch (error) {
           if (direct?.id || !String(error.message).includes('não apareceu nos movimentos')) throw error;
+        }
+        if (sendError && movement) {
+          log('warn', 'Resposta de envio ambígua reconciliada pelo movimento criado.', {
+            commandId: job.id,
+            movementId: movement.id,
+            error: sendError.message || String(sendError)
+          });
         }
         if (jobWasEdited(job)) {
           if (movement) {
@@ -795,7 +803,7 @@
           updateJob(job.id, {
             failedAttempts,
             diagnosticOutcome: 'rejeitado-sem-movimento',
-            error: `envio-rejeitado-${failedAttempts}/${CONFIG.maximumFailedAttempts}`
+            error: `envio-rejeitado-${failedAttempts}/${CONFIG.maximumFailedAttempts}${sendError ? `:${sendError.message || sendError}` : ''}`
           });
           appendAttemptRecord(job.id, {
             attempt: attempts,
