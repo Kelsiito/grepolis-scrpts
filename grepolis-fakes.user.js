@@ -3,7 +3,7 @@
 // @namespace    https://grepolis.com/
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-fakes.user.js
 // @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-fakes.user.js
-// @version      1.5.0
+// @version      1.5.1
 // @description  Divide uma ofensiva terrestre em três fakes e um ataque real.
 // @author       unknown
 // @match        https://*.grepolis.com/game/*
@@ -16,7 +16,7 @@
 
   const uw = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
   const BUTTON_CLASS = 'grepolis-fakes-button';
-  const VERSION = '1.5.0';
+  const VERSION = '1.5.1';
   const ATTACK_ROOT_SELECTORS = [
     '.attack_support_window.attack',
     '.attack_support_window',
@@ -251,7 +251,7 @@
     const data = uw.GameData?.heroes?.[type] || {};
     if (!OFFENSIVE_GROUND_HEROES.has(type) || data.is_ground === false || data.is_naval === true) return null;
 
-    const id = asInteger(hero.getId?.() ?? hero.attributes?.id);
+    const id = String(hero.getId?.() || type).trim();
     const townId = asInteger(handler.getHeroTownId?.() ?? hero.getHomeTownId?.() ?? uw.Game?.townId);
     if (!id || !townId) return null;
     return { id, townId, type, name: data.name || type };
