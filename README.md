@@ -149,4 +149,9 @@ gruta, além de testes completos para:
 O script guarda apenas preferências e registos no armazenamento local do
 Tampermonkey. Não guarda credenciais.
 
+`grepolis-spam.user.js` acrescenta controlos Cidade/Grupo e o botão `Spam` apenas
+ao perfil de outro jogador. Envia ataques mínimos em série através da API nativa;
+voltar a carregar no botão pára somente a fila ainda não enviada. Grupos requerem
+Administrador activo.
+
 A validação manual acumulada está em `TEST-CHECKLIST.md`.

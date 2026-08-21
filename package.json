@@ -5,7 +5,7 @@
   "description": "Assistente defensivo para Grepolis em Tampermonkey.",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check grepolis-assistant.user.js && node --check grepolis-command-autorefresh.user.js && node --check grepolis-fakes.user.js && node --check grepolis-dodge.user.js && node --check grepolis-auto-purification.user.js && node --check grepolis-command-paster.user.js && node --check grepolis-attack-info.user.js",
+    "check": "node --check grepolis-assistant.user.js && node --check grepolis-command-autorefresh.user.js && node --check grepolis-fakes.user.js && node --check grepolis-dodge.user.js && node --check grepolis-auto-purification.user.js && node --check grepolis-command-paster.user.js && node --check grepolis-attack-info.user.js && node --check grepolis-spam.user.js && node --check grepodata-auto-index.user.js",
     "preview": "node tests/server.js"
   }
 }
