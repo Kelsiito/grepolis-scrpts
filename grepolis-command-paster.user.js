@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Grepolis — Colagem automática de comandos PT
 // @namespace    https://grepolis.com/
-// @version      2.5.5
+// @version      2.5.6
 // @description  Envia comandos já guardados no Planeador nativo, sem abrir janelas de ataque ou apoio.
 // @match        https://*.grepolis.com/game/*
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-command-paster.user.js
@@ -15,7 +15,7 @@
 (function grepolisCommandPasterFactory() {
   'use strict';
 
-  const VERSION = '2.5.5';
+  const VERSION = '2.5.6';
   const TERMINAL_STATES = new Set(['confirmed', 'cancelled', 'failed', 'expired']);
   const SUPPORTED_TYPES = new Set(['attack', 'support', 'revolt']);
   const UNIT_KEY = /^[a-z][a-z0-9_]*$/;
@@ -585,23 +585,62 @@
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, number(ms))));
   }
 
+  async function waitForMovementGone(movementId, timeoutMs) {
+    const deadline = Date.now() + Math.max(0, number(timeoutMs));
+    let consecutiveMisses = 0;
+    while (Date.now() < deadline) {
+      const exists = movements().some((movement) => movement.id === String(movementId));
+      consecutiveMisses = exists ? 0 : consecutiveMisses + 1;
+      if (consecutiveMisses >= 3) return true;
+      await delay(10);
+    }
+    return false;
+  }
+
   async function cancelAttempt(job, movement) {
     const cancelStartedAt = serverNowMs();
-    await ajax('ajaxPost', 'command_info', 'cancel_command', {
-      id: integer(movement.id),
-      town_id: integer(job.command.originTownId)
-    }, 5_000);
+    const cancelDeadline = Math.max(
+      job.dispatchAt + CONFIG.timingCorrectionWindowMs,
+      cancelStartedAt + 2_000
+    );
+    let cancelRequests = 0;
+    let lastError = null;
+    while (serverNowMs() < cancelDeadline) {
+      cancelRequests += 1;
+      let requestAccepted = false;
+      try {
+        await ajax('ajaxPost', 'command_info', 'cancel_command', {
+          id: integer(movement.id),
+          town_id: integer(job.command.originTownId)
+        }, 5_000);
+        lastError = null;
+        requestAccepted = true;
+      } catch (error) {
+        lastError = error;
+      }
+      const remainingMs = Math.max(0, cancelDeadline - serverNowMs());
+      const movementWaitMs = requestAccepted ? remainingMs : Math.min(250, remainingMs);
+      if (await waitForMovementGone(movement.id, movementWaitMs)) break;
+      await delay(CONFIG.spamGapMs);
+    }
+    if (movements().some((candidate) => candidate.id === String(movement.id))) {
+      throw new Error(`Cancelamento não confirmado: ${lastError?.message || lastError || movement.id}`);
+    }
     const cancelFinishedAt = serverNowMs();
-    log('info', 'Tentativa cancelada; spam serial retomado.', {
+    log(lastError ? 'warn' : 'info', lastError
+      ? 'Erro de cancelamento reconciliado; spam serial retomado.'
+      : 'Tentativa cancelada; spam serial retomado.', {
       commandId: job.id,
       movementId: movement.id,
       actualArrivalAt: movement.arrivalAt,
-      desiredArrivalAt: job.desiredArrivalAt
+      desiredArrivalAt: job.desiredArrivalAt,
+      cancelRequests
     });
     return {
       cancelStartedAt,
       cancelFinishedAt,
-      cancelRttMs: cancelFinishedAt - cancelStartedAt
+      cancelRttMs: cancelFinishedAt - cancelStartedAt,
+      cancelRequests
     };
   }
 
