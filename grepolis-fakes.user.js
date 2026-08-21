@@ -3,7 +3,7 @@
 // @namespace    https://grepolis.com/
 // @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-fakes.user.js
 // @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/main/grepolis-fakes.user.js
-// @version      1.4.1
+// @version      1.5.0
 // @description  Divide uma ofensiva terrestre em três fakes e um ataque real.
 // @author       unknown
 // @match        https://*.grepolis.com/game/*
@@ -16,7 +16,7 @@
 
   const uw = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
   const BUTTON_CLASS = 'grepolis-fakes-button';
-  const VERSION = '1.4.1';
+  const VERSION = '1.5.0';
   const ATTACK_ROOT_SELECTORS = [
     '.attack_support_window.attack',
     '.attack_support_window',
@@ -35,6 +35,11 @@
     '.button_new[type="submit"]'
   ];
   const MAIN_UNITS = new Set(['slinger', 'hoplite', 'rider', 'chariot']);
+  const OFFENSIVE_GROUND_HEROES = new Set([
+    'agamemnon', 'ajax', 'alexandrios', 'atalanta', 'deimos', 'hector', 'helen',
+    'hercules', 'iason', 'lysippe', 'medea', 'melousa', 'pelops', 'telemachos',
+    'themistokles', 'urephon'
+  ]);
   const EXCLUDED_FROM_MINIMUM = new Set(['militia']);
   let sending = false;
 
@@ -235,6 +240,23 @@
     return manager?.getWindowById?.(windowId) || manager?.GetByID?.(windowId) || null;
   }
 
+  function offensiveGroundHero(root) {
+    const handler = attackWindow(root)?.getHandler?.();
+    const hero = handler?.getHeroInTheTown?.();
+    if (!hero) return null;
+    if (typeof handler.isHeroHealthyInTown === 'function' && !handler.isHeroHealthyInTown()) return null;
+    if (typeof hero.isAvailableInTown === 'function' && !hero.isAvailableInTown()) return null;
+
+    const type = String(hero.get?.('type') || hero.attributes?.type || '');
+    const data = uw.GameData?.heroes?.[type] || {};
+    if (!OFFENSIVE_GROUND_HEROES.has(type) || data.is_ground === false || data.is_naval === true) return null;
+
+    const id = asInteger(hero.getId?.() ?? hero.attributes?.id);
+    const townId = asInteger(handler.getHeroTownId?.() ?? hero.getHomeTownId?.() ?? uw.Game?.townId);
+    if (!id || !townId) return null;
+    return { id, townId, type, name: data.name || type };
+  }
+
   function attackMetadata(root) {
     const targetMatch = String(root.className || '').match(/attack_support_tab_target_(\d+)/);
     const targetId = asInteger(targetMatch?.[1]);
@@ -285,17 +307,21 @@
     });
   }
 
-  async function sendAttackBatch(root, batch) {
+  async function sendAttackBatch(root, batch, realPosition, hero = null) {
     const wnd = attackWindow(root);
     if (!wnd?.ajaxRequestPost) throw new Error('Controlador nativo da janela não encontrado.');
     const metadata = attackMetadata(root);
     let sent = 0;
-    for (const composition of batch) {
+    for (const [index, composition] of batch.entries()) {
       const payload = {
         ...composition,
         id: metadata.targetId,
         type: metadata.type
       };
+      if (index === realPosition && hero) {
+        payload.heroes = hero.id;
+        payload.town_id = hero.townId;
+      }
       if (metadata.strategies.length) payload.attacking_strategy = metadata.strategies;
       if (metadata.power && metadata.power !== 'no_power') payload.power_id = metadata.power;
       try {
@@ -343,6 +369,7 @@
       );
       // Ordem pedida: fake, fake, real, fake.
       const realPosition = 2;
+      const hero = offensiveGroundHero(root);
       let batch = buildAttackBatch({
         mainName: main.name,
         mainAvailable: main.available,
@@ -355,7 +382,7 @@
 
       button.title = `v${VERSION} | mínimo ${minimumPopulation} pop | ${batch[0][main.name]} ${main.name} + 1 cata`;
       try {
-        await sendAttackBatch(root, batch);
+        await sendAttackBatch(root, batch, realPosition, hero);
       } catch (error) {
         const officialMinimum = String(error.message).match(
           /0\/4 enviados[\s\S]*?pelo menos por\s+(\d+)\s+habitantes/i
@@ -372,10 +399,13 @@
           realPosition
         });
         button.title = `v${VERSION} | mínimo oficial ${correctedMinimum} pop | ${batch[0][main.name]} ${main.name} + 1 cata`;
-        await sendAttackBatch(root, batch);
+        await sendAttackBatch(root, batch, realPosition, hero);
       }
       zeroInputs(units);
-      notify(`4 ataques enviados. Real na posição ${realPosition + 1}.`, 'success');
+      notify(
+        `4 ataques enviados. Real na posição ${realPosition + 1}.${hero ? ` Herói: ${hero.name}.` : ''}`,
+        'success'
+      );
       button.disabled = false;
       sending = false;
     } catch (error) {
