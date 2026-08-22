@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         GrepoData City Indexer + Auto Index
 // @namespace    grepodata
-// @version      2.2.0
+// @version      2.3.0
 // @author       grepodata.com
 // @homepage     https://grepodata.com/indexer
+// @updateURL    https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/codex/add-grepodata-spam/grepodata-auto-index.user.js
+// @downloadURL  https://raw.githubusercontent.com/Kelsiito/grepolis-scrpts/codex/add-grepodata-spam/grepodata-auto-index.user.js
 // @description  GrepoData City Indexer com indexacao automatica de relatorios
 // @match        https://*.grepolis.com/game/*
 // @match        https://grepodata.com/*
@@ -18,7 +20,9 @@
     'use strict';
 
     var API_URL = 'https://api.grepodata.com/script';
-    var MIN_INDEX_INTERVAL = 5000;
+    var MIN_INDEX_INTERVAL = 750;
+    var NO_POINTS_TTL = 6 * 60 * 60 * 1000;
+    var STORAGE_KEY = 'gd_auto_index_dedupe_v1:' + window.location.hostname;
     var cacheVersion = Math.floor(Date.now() / 3600000);
     var checkTimer = null;
     var lastIndexTime = 0;
@@ -69,7 +73,7 @@
 
     function scheduleIndexCheck() {
         window.clearTimeout(checkTimer);
-        checkTimer = window.setTimeout(indexOpenReport, 350);
+        checkTimer = window.setTimeout(indexOpenReport, 100);
     }
 
     function indexOpenReport() {
@@ -79,7 +83,9 @@
             return;
         }
 
-        if (!isUsefulCombatReport(reportWindow)) {
+        var reportDecision = classifyReport(reportWindow);
+
+        if (!reportDecision.shouldIndex) {
             return;
         }
 
@@ -121,45 +127,138 @@
 
         indexButton.setAttribute('data-gd-auto-indexed', 'true');
         lastIndexTime = Date.now();
+        rememberReport(reportDecision);
         console.info('[GrepoData Auto-Indexer] A indexar o relatorio aberto.');
         indexButton.click();
     }
 
-    function isUsefulCombatReport(reportWindow) {
+    function classifyReport(reportWindow) {
         var text = reportWindow.textContent
             .replace(/\s+/g, ' ')
             .trim()
             .toLowerCase();
+        var targetKey = getTargetKey(reportWindow, text);
+        var state = loadDedupeState();
+        var now = Date.now();
 
         var isEspionage = text.indexOf('espionagem') !== -1 ||
             text.indexOf('espiou') !== -1 ||
+            text.indexOf('espiar') !== -1 ||
             text.indexOf('spy report') !== -1 ||
             text.indexOf('spied') !== -1;
+
+        var failedEspionage = text.indexOf('espionagem falhou') !== -1 ||
+            text.indexOf('espionagem não foi bem-sucedida') !== -1 ||
+            text.indexOf('espionagem nao foi bem-sucedida') !== -1 ||
+            text.indexOf('spy failed') !== -1 ||
+            text.indexOf('was not successful') !== -1;
 
         var hasNoBattlePoints =
             text.indexOf('não recebeu pontos de combate') !== -1 ||
             text.indexOf('nao recebeu pontos de combate') !== -1 ||
             text.indexOf('no battle points') !== -1;
 
-        var isConquest = text.indexOf('conquista') !== -1 ||
-            text.indexOf('conquistou') !== -1 ||
-            text.indexOf('revolta') !== -1 ||
-            text.indexOf('conquest') !== -1 ||
-            text.indexOf('revolt') !== -1;
-
         if (isEspionage) {
-            console.info('[GrepoData Auto-Indexer] Espionagem ignorada.');
-            return false;
+            if (failedEspionage) {
+                console.info('[GrepoData Auto-Indexer] Espionagem falhada ignorada.');
+                return { shouldIndex: false };
+            }
+
+            if (state.espionage[targetKey]) {
+                console.info('[GrepoData Auto-Indexer] Espionagem repetida ignorada.');
+                return { shouldIndex: false };
+            }
+
+            return {
+                shouldIndex: true,
+                bucket: 'espionage',
+                targetKey: targetKey,
+                timestamp: now
+            };
         }
 
-        if (hasNoBattlePoints && !isConquest) {
-            console.info(
-                '[GrepoData Auto-Indexer] Relatorio sem combate ignorado.'
-            );
-            return false;
+        if (hasNoBattlePoints) {
+            var previous = state.noPoints[targetKey] || 0;
+
+            if (now - previous < NO_POINTS_TTL) {
+                console.info('[GrepoData Auto-Indexer] Report sem pontos repetido ignorado.');
+                return { shouldIndex: false };
+            }
+
+            return {
+                shouldIndex: true,
+                bucket: 'noPoints',
+                targetKey: targetKey,
+                timestamp: now
+            };
         }
 
-        return true;
+        return { shouldIndex: true };
+    }
+
+    function getTargetKey(reportWindow, normalizedText) {
+        var townElements = reportWindow.querySelectorAll(
+            '[data-townid], [data-town_id], a[href*="town_id"]'
+        );
+
+        for (var index = townElements.length - 1; index >= 0; index -= 1) {
+            var element = townElements[index];
+            var townId = element.getAttribute('data-townid') ||
+                element.getAttribute('data-town_id');
+            var href = element.getAttribute('href') || '';
+            var hrefMatch = href.match(/[?&]town_id=(\d+)/);
+
+            if (townId || hrefMatch) {
+                return 'town:' + (townId || hrefMatch[1]);
+            }
+        }
+
+        var header = reportWindow.querySelector('#report_report_header');
+        var headerText = header ? header.textContent : normalizedText.slice(0, 250);
+
+        return 'title:' + normalizeKey(headerText);
+    }
+
+    function normalizeKey(value) {
+        return String(value)
+            .toLowerCase()
+            .replace(/\d{1,2}[/.:-]\d{1,2}[/.:-]\d{2,4}/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 250);
+    }
+
+    function loadDedupeState() {
+        var emptyState = { espionage: {}, noPoints: {} };
+
+        try {
+            var parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
+
+            if (!parsed || typeof parsed !== 'object') {
+                return emptyState;
+            }
+
+            parsed.espionage = parsed.espionage || {};
+            parsed.noPoints = parsed.noPoints || {};
+            return parsed;
+        } catch (error) {
+            return emptyState;
+        }
+    }
+
+    function rememberReport(decision) {
+        if (!decision.bucket || !decision.targetKey) {
+            return;
+        }
+
+        var state = loadDedupeState();
+        state[decision.bucket][decision.targetKey] = decision.timestamp;
+
+        try {
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (error) {
+            console.warn('[GrepoData Auto-Indexer] Memoria de duplicados indisponivel.');
+        }
     }
 
     function isVisible(element) {
